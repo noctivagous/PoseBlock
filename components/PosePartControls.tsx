@@ -22,7 +22,7 @@ function ControlBtn({
     <button
       type="button"
       onClick={onClick}
-      className="rounded bg-zinc-800 px-2 py-1 text-xs text-white/90 hover:bg-zinc-700"
+      className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-white/90 hover:bg-zinc-700"
     >
       {label}
     </button>
@@ -87,15 +87,15 @@ function PartPanel({ partId }: { partId: BodyPartId }) {
 
   return (
     <div
-      className="flex w-44 flex-col gap-2 rounded-lg border border-white/10 bg-black/85 p-2 text-white shadow-lg backdrop-blur"
+      className="flex w-36 flex-col gap-1.5 rounded-lg border border-white/10 bg-black/85 p-1.5 text-white shadow-lg backdrop-blur"
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium">{part.label}</span>
+        <span className="text-[11px] font-medium">{part.label}</span>
         <button
           type="button"
           onClick={() => set({ selectedBodyPart: null })}
-          className="text-xs text-white/50 hover:text-white"
+          className="text-[11px] text-white/50 hover:text-white"
         >
           ✕
         </button>
@@ -131,7 +131,7 @@ export function PosePartControls({ skeleton }: { skeleton: THREE.Skeleton }) {
 
   return (
     <group ref={groupRef}>
-      <Html center distanceFactor={6} style={{ pointerEvents: 'auto' }}>
+      <Html center transform={false} distanceFactor={1} style={{ pointerEvents: 'auto' }}>
         <PartPanel partId={selectedBodyPart} />
       </Html>
     </group>

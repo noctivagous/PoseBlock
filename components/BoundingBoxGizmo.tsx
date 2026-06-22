@@ -1,7 +1,6 @@
 'use client'
 
 import { Html } from '@react-three/drei'
-import type { ThreeEvent } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import {
@@ -11,8 +10,11 @@ import {
 import { useStore } from '@/lib/store'
 
 const ROT_STEP = 15
+const PITCH_STEP = 12
+const MAX_PITCH = 160
 const MIN_SCALE = 0.15
 const MAX_SCALE = 4
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 function GizmoBtn({
   label,
@@ -47,7 +49,9 @@ type BoundingBoxGizmoProps = {
 export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
   const set = useStore((s) => s.set)
   const characterScale = useStore((s) => s.characterScale)
-  const scaleDrag = useRef<{ startScale: number; startY: number } | null>(null)
+  const scaleDrag = useRef<{ startScale: number; startY: number; pointerId: number } | null>(
+    null
+  )
 
   const halfX = size.x / 2
   const halfY = size.y / 2
@@ -57,6 +61,22 @@ export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
     set({ characterRotationY: useStore.getState().characterRotationY - ROT_STEP })
   const rotateRight = () =>
     set({ characterRotationY: useStore.getState().characterRotationY + ROT_STEP })
+  const pitchTowardCamera = () =>
+    set({
+      characterRotationX: clamp(
+        useStore.getState().characterRotationX + PITCH_STEP,
+        -MAX_PITCH,
+        MAX_PITCH
+      ),
+    })
+  const pitchFeetTowardCamera = () =>
+    set({
+      characterRotationX: clamp(
+        useStore.getState().characterRotationX - PITCH_STEP,
+        -MAX_PITCH,
+        MAX_PITCH
+      ),
+    })
   const moveTowardCamera = () => {
     const z = clampCharacterZ(useStore.getState().characterZ + Z_STEP)
     set({ characterZ: z })
@@ -66,16 +86,18 @@ export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
     set({ characterZ: z })
   }
 
-  const onScalePointerDown = (e: ThreeEvent<PointerEvent>) => {
+  const onScalePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation()
-    scaleDrag.current = { startScale: characterScale, startY: e.clientY }
-    ;(e.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(
-      e.pointerId
-    )
+    scaleDrag.current = {
+      startScale: characterScale,
+      startY: e.clientY,
+      pointerId: e.pointerId,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
   }
 
-  const onScalePointerMove = (e: ThreeEvent<PointerEvent>) => {
-    if (!scaleDrag.current) return
+  const onScalePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!scaleDrag.current || scaleDrag.current.pointerId !== e.pointerId) return
     e.stopPropagation()
     const delta = (scaleDrag.current.startY - e.clientY) * 0.008
     const next = THREE.MathUtils.clamp(
@@ -86,13 +108,11 @@ export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
     set({ characterScale: next })
   }
 
-  const endScaleDrag = (e: ThreeEvent<PointerEvent>) => {
-    if (!scaleDrag.current) return
+  const endScaleDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!scaleDrag.current || scaleDrag.current.pointerId !== e.pointerId) return
     e.stopPropagation()
     scaleDrag.current = null
-    ;(e.target as { releasePointerCapture?: (id: number) => void }).releasePointerCapture?.(
-      e.pointerId
-    )
+    e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
   return (
@@ -126,22 +146,42 @@ export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
         </div>
       </Html>
 
-      {/* Scale handle — bottom-right corner */}
-      <mesh
-        position={[halfX, -halfY, 0.02]}
-        renderOrder={20}
-        onPointerDown={onScalePointerDown}
-        onPointerMove={onScalePointerMove}
-        onPointerUp={endScaleDrag}
-        onPointerCancel={endScaleDrag}
+      {/* Pitch: head/feet toward camera (separate lane to avoid overlap) */}
+      <Html
+        position={[-halfX - pad, -halfY * 0.25, 0]}
+        center
+        style={{ pointerEvents: 'auto' }}
       >
-        <boxGeometry args={[0.14, 0.14, 0.14]} />
-        <meshBasicMaterial color="#38bdf8" depthTest={false} toneMapped={false} />
-      </mesh>
-      <Html position={[halfX + 0.12, -halfY - 0.12, 0]} center>
-        <span className="pointer-events-none select-none text-[10px] text-sky-300/80">
-          resize
-        </span>
+        <div className="flex gap-1">
+          <GizmoBtn
+            label="P+"
+            title="Pitch toward camera (flying)"
+            onClick={pitchTowardCamera}
+          />
+          <GizmoBtn
+            label="P-"
+            title="Pitch opposite direction (feet toward camera)"
+            onClick={pitchFeetTowardCamera}
+          />
+        </div>
+      </Html>
+
+      {/* Scale handle — HTML button with drag-to-scale */}
+      <Html position={[halfX + 0.34, -halfY * 0.22, 0]} center style={{ pointerEvents: 'auto' }}>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            title="Drag up/down to scale"
+            className="flex h-5 w-5 items-center justify-center rounded border border-cyan-300/80 bg-cyan-900/80 text-[10px] leading-none text-cyan-100 shadow hover:bg-cyan-800/90"
+            onPointerDown={onScalePointerDown}
+            onPointerMove={onScalePointerMove}
+            onPointerUp={endScaleDrag}
+            onPointerCancel={endScaleDrag}
+          >
+            S
+          </button>
+          <span className="pointer-events-none select-none text-[10px] text-sky-200">scale</span>
+        </div>
       </Html>
     </group>
   )

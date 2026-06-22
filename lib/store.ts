@@ -22,11 +22,13 @@ export type StoreState = {
   characterX: number
   characterY: number
   characterZ: number
+  characterRotationX: number
   characterRotationY: number
   characterScale: number
   characterError: string | null
   set: (partial: Partial<StoreState>) => void
   pushPoseOp: (op: PoseOp) => void
+  pushPoseOps: (ops: PoseOp[]) => void
   undoPoseAdjustment: () => void
   redoPoseAdjustment: () => void
   resetPoseAdjustments: () => void
@@ -49,6 +51,7 @@ export const useStore = create<StoreState>((set, get) => ({
   characterX: 0,
   characterY: 0,
   characterZ: 0,
+  characterRotationX: 0,
   characterRotationY: 0,
   characterScale: 1,
   characterError: null,
@@ -58,6 +61,19 @@ export const useStore = create<StoreState>((set, get) => ({
     set({
       poseAdjustmentPast: [...poseAdjustmentPast, poseAdjustments],
       poseAdjustments: appendPoseOp(poseAdjustments, op),
+      poseAdjustmentFuture: [],
+    })
+  },
+  pushPoseOps: (ops) => {
+    if (ops.length === 0) return
+    const { poseAdjustments, poseAdjustmentPast } = get()
+    let next = poseAdjustments
+    for (const op of ops) {
+      next = appendPoseOp(next, op)
+    }
+    set({
+      poseAdjustmentPast: [...poseAdjustmentPast, poseAdjustments],
+      poseAdjustments: next,
       poseAdjustmentFuture: [],
     })
   },

@@ -12,7 +12,7 @@ import { lerpPose, resetPose } from '@/lib/poses'
 import { useStore } from '@/lib/store'
 import { BoundingBoxGizmo } from './BoundingBoxGizmo'
 import { PoseBodyPicker } from './PoseBodyPicker'
-import { PosePartControls } from './PosePartControls'
+import { PoseJointGizmo } from './PoseJointGizmo'
 
 const TARGET_MODEL_HEIGHT = 1.8
 const DEG2RAD = Math.PI / 180
@@ -29,6 +29,7 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
   const characterX = useStore((s) => s.characterX)
   const characterY = useStore((s) => s.characterY)
   const characterZ = useStore((s) => s.characterZ)
+  const characterRotationX = useStore((s) => s.characterRotationX)
   const characterRotationY = useStore((s) => s.characterRotationY)
   const characterScale = useStore((s) => s.characterScale)
   const interactionMode = useStore((s) => s.interactionMode)
@@ -93,9 +94,17 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
     const group = groupRef.current
     if (!group || isDragging.current) return
     group.position.set(characterX, characterY, characterZ)
-    group.rotation.set(0, characterRotationY * DEG2RAD, 0)
+    group.rotation.set(characterRotationX * DEG2RAD, characterRotationY * DEG2RAD, 0)
     group.scale.setScalar(displayScale(characterScale, characterZ))
-  }, [characterScale, characterRotationY, characterX, characterY, characterZ, groupRef])
+  }, [
+    characterScale,
+    characterRotationX,
+    characterRotationY,
+    characterX,
+    characterY,
+    characterZ,
+    groupRef,
+  ])
 
   const syncStoreFromGroup = () => {
     const group = groupRef.current
@@ -104,6 +113,7 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
       characterX: group.position.x,
       characterY: group.position.y,
       characterZ: group.position.z,
+      characterRotationX: group.rotation.x / DEG2RAD,
       characterRotationY: group.rotation.y / DEG2RAD,
       characterScale: baseScaleFromDisplay(group.scale.x, group.position.z),
     })
@@ -164,7 +174,7 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
     <group
       ref={groupRef}
       position={[characterX, characterY, characterZ]}
-      rotation={[0, characterRotationY * DEG2RAD, 0]}
+      rotation={[characterRotationX * DEG2RAD, characterRotationY * DEG2RAD, 0]}
       scale={displayScale(characterScale, characterZ)}
       onPointerDown={onModelPointerDown}
       onPointerMove={onModelPointerMove}
@@ -179,7 +189,7 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
         {skeleton && (
           <>
             <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
-            <PosePartControls skeleton={skeleton} />
+            <PoseJointGizmo skeleton={skeleton} />
           </>
         )}
       </group>

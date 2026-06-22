@@ -78,64 +78,68 @@ export default function Home() {
   }
 
   return (
-    <main
-      className="relative h-screen w-screen overflow-hidden bg-zinc-950"
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={onDrop}
-    >
-      <PreviewFrame>
-        <Scene />
-      </PreviewFrame>
+    <main className="flex h-screen w-screen overflow-hidden bg-zinc-950">
+      <div
+        className="relative min-w-0 flex-1"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={onDrop}
+      >
+        <PreviewFrame>
+          <Scene />
+        </PreviewFrame>
 
-      <Controls />
-      <Toolbar />
-      <PoseAdjustToolbar />
-      <ExportButton />
-
-      <div className="pointer-events-none fixed left-4 top-4 z-10 flex flex-col gap-2">
-        <h1 className="text-lg font-semibold text-white drop-shadow">PoseBlock</h1>
-        <p className="max-w-xs text-xs text-white/70 drop-shadow">
-          Drag the mannequin to move it. Use the bounding-box arrows to rotate or
-          change depth, and drag the corner handle to resize.
-          Export composites the original bitmap with the 3D overlay at full resolution.
-        </p>
+        {characterError && (
+          <div className="absolute inset-x-4 top-1/2 z-20 mx-auto max-w-md -translate-y-1/2 rounded-lg bg-red-900/90 p-4 text-center text-white">
+            <p className="font-medium">{characterError}</p>
+            <button
+              type="button"
+              className="mt-2 text-sm underline"
+              onClick={() => {
+                const first = characterModels[0]
+                set({
+                  characterError: null,
+                  modelUrl: first?.url ?? '',
+                })
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="fixed bottom-4 left-4 z-10">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={onFileChange}
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded bg-white/10 px-3 py-2 text-sm text-white backdrop-blur hover:bg-white/20"
-        >
-          Upload frame
-        </button>
-      </div>
+      <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto border-l border-white/10 bg-zinc-900/80 p-4 text-white">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-lg font-semibold">PoseBlock</h1>
+          <p className="text-xs text-white/60">
+            Drag the mannequin to move it. Use bounding-box controls to rotate,
+            change depth, or scale. Export composites the backdrop with the 3D overlay.
+          </p>
+        </div>
 
-      {characterError && (
-        <div className="fixed inset-x-0 top-1/2 z-20 mx-auto max-w-md -translate-y-1/2 rounded-lg bg-red-900/90 p-4 text-center text-white">
-          <p className="font-medium">{characterError}</p>
+        <Toolbar />
+        <PoseAdjustToolbar />
+
+        <div className="mt-auto flex flex-col gap-2 pt-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onFileChange}
+          />
           <button
             type="button"
-            className="mt-2 text-sm underline"
-            onClick={() => {
-              const first = characterModels[0]
-              set({
-                characterError: null,
-                modelUrl: first?.url ?? '',
-              })
-            }}
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full rounded bg-zinc-800 px-3 py-2 text-sm text-white hover:bg-zinc-700"
           >
-            Retry
+            Upload frame
           </button>
+          <ExportButton />
         </div>
-      )}
+      </aside>
+
+      <Controls />
     </main>
   )
 }

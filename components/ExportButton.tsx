@@ -20,7 +20,7 @@ export function ExportButton() {
     <button
       type="button"
       onClick={handleExport}
-      className="fixed bottom-4 right-4 z-10 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-700"
+      className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-700"
     >
       Export for inpainting
     </button>

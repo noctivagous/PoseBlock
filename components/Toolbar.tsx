@@ -21,7 +21,7 @@ export function Toolbar() {
     ''
 
   return (
-    <div className="fixed left-4 top-24 z-10 flex flex-col gap-2 rounded-lg bg-black/70 p-3 text-sm text-white backdrop-blur">
+    <div className="flex flex-col gap-2 rounded-lg bg-black/40 p-3 text-sm">
       <label className="flex flex-col gap-1">
         <span className="text-xs text-white/60">Character</span>
         <select

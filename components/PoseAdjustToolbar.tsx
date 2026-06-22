@@ -99,7 +99,7 @@ export function PoseAdjustToolbar() {
   const fmt = (n: number) => (n === 0 ? '' : `${n > 0 ? '+' : ''}${Math.round(n)}°`)
 
   return (
-    <div className="fixed left-4 top-[26rem] z-10 flex max-w-xs flex-col gap-2 rounded-lg bg-black/70 p-3 text-sm text-white backdrop-blur">
+    <div className="flex flex-col gap-2 rounded-lg bg-black/40 p-3 text-sm">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-white/60">Adjust pose</span>
         <span className="text-xs text-white/40">{poseAdjustments.length} ops</span>
