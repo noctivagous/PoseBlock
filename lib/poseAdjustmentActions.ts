@@ -42,8 +42,8 @@ export function handGesture(side: 'left' | 'right', gesture: HandGesture): PoseO
   return { type: 'setHand', side, gesture }
 }
 
-export function torsoNudge(pitch?: number, yaw?: number): PoseOp {
-  return { type: 'nudgeTorso', pitch, yaw }
+export function torsoNudge(pitch?: number, yaw?: number, roll?: number): PoseOp {
+  return { type: 'nudgeTorso', pitch, yaw, roll }
 }
 
 export function stanceNudge(width: number): PoseOp {
@@ -53,7 +53,7 @@ export function stanceNudge(width: number): PoseOp {
 export function legNudge(
   side: 'left' | 'right',
   fields: { forward?: number; out?: number },
-  part: 'thigh' | 'lower' = 'thigh'
+  part: 'thigh' | 'lower' | 'foot' = 'thigh'
 ): PoseOp {
   return { type: 'nudgeLeg', side, part, ...fields }
 }

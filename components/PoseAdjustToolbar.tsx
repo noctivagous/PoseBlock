@@ -1,6 +1,6 @@
 'use client'
 
-import { composePose, summarizePoseOps } from '@/lib/poseCompose'
+import { composePose, summarizePoseOps, type PoseOp } from '@/lib/poseCompose'
 import {
   armNudge,
   foreArmFlex,
@@ -12,17 +12,35 @@ import {
   NUDGE,
   stanceNudge,
   torsoNudge,
+  wholeRotate,
 } from '@/lib/poseAdjustmentActions'
 import { getAllPosePresets } from '@/lib/posePresets'
 import { useStore } from '@/lib/store'
 import { useMemo } from 'react'
 
-function Btn({ label, onClick }: { label: string; onClick: () => void }) {
+const MIN_SCALE = 0.15
+const MAX_SCALE = 4
+const SCALE_STEP = 0.08
+
+function Btn({
+  label,
+  onClick,
+  tone = 'default',
+}: {
+  label: string
+  onClick: () => void
+  tone?: 'default' | 'light'
+}) {
+  const toneClass =
+    tone === 'light'
+      ? 'bg-zinc-700/70 text-white/75 hover:bg-zinc-600/80'
+      : 'bg-zinc-800 text-white/90 hover:bg-zinc-700'
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 select-none rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-white/90 hover:bg-zinc-700"
+      className={`flex-1 select-none rounded px-1.5 py-0.5 text-xs ${toneClass}`}
     >
       {label}
     </button>
@@ -91,6 +109,31 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
   )
 }
 
+function LegColPair({
+  side,
+  part,
+  tone = 'default',
+  pushPoseOp,
+}: {
+  side: 'left' | 'right'
+  part: 'thigh' | 'lower' | 'foot'
+  tone?: 'default' | 'light'
+  pushPoseOp: (op: PoseOp) => void
+}) {
+  return (
+    <ColPair>
+      <Col>
+        <Btn tone={tone} label="Fwd" onClick={() => pushPoseOp(legNudge(side, { forward: NUDGE.legForward }, part))} />
+        <Btn tone={tone} label="Back" onClick={() => pushPoseOp(legNudge(side, { forward: -NUDGE.legForward }, part))} />
+      </Col>
+      <Col>
+        <Btn tone={tone} label="Out" onClick={() => pushPoseOp(legNudge(side, { out: NUDGE.legOut }, part))} />
+        <Btn tone={tone} label="In" onClick={() => pushPoseOp(legNudge(side, { out: -NUDGE.legOut }, part))} />
+      </Col>
+    </ColPair>
+  )
+}
+
 export function PoseAdjustToolbar() {
   const basePoseId = useStore((s) => s.basePoseId)
   const poseAdjustments = useStore((s) => s.poseAdjustments)
@@ -103,6 +146,12 @@ export function PoseAdjustToolbar() {
   const resetPoseAdjustments = useStore((s) => s.resetPoseAdjustments)
   const setBasePoseId = useStore((s) => s.setBasePoseId)
   const set = useStore((s) => s.set)
+  const characterScale = useStore((s) => s.characterScale)
+
+  const scaleUp = () =>
+    set({ characterScale: Math.min(MAX_SCALE, characterScale + SCALE_STEP) })
+  const scaleDown = () =>
+    set({ characterScale: Math.max(MIN_SCALE, characterScale - SCALE_STEP) })
 
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
   const composedPose = useMemo(() => {
@@ -157,8 +206,9 @@ export function PoseAdjustToolbar() {
           <span className="text-[10px] text-white/25 italic">No edits yet</span>
         )}
         {poseAdjustments.length > 0 && (<>
+          <SummaryLine label="Whole" value={[fmt(summary.whole.pitch), fmt(summary.whole.yaw), fmt(summary.whole.roll)].filter(Boolean).join(' ')} />
           <SummaryLine label="Head" value={[fmt(summary.head.pitch), fmt(summary.head.yaw), fmt(summary.head.roll)].filter(Boolean).join(' ')} />
-          <SummaryLine label="Torso" value={[fmt(summary.torso.pitch), fmt(summary.torso.yaw)].filter(Boolean).join(' ')} />
+          <SummaryLine label="Torso" value={[fmt(summary.torso.pitch), fmt(summary.torso.yaw), fmt(summary.torso.roll)].filter(Boolean).join(' ')} />
           <SummaryLine label="L arm" value={[summary.leftArm.raise ? `raise ${fmt(summary.leftArm.raise)}` : '', summary.leftArm.out ? `out ${fmt(summary.leftArm.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="R arm" value={[summary.rightArm.raise ? `raise ${fmt(summary.rightArm.raise)}` : '', summary.rightArm.out ? `out ${fmt(summary.rightArm.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="L forearm" value={fmt(summary.leftForeArm)} />
@@ -169,9 +219,33 @@ export function PoseAdjustToolbar() {
           <SummaryLine label="R thigh" value={[summary.rightLeg.forward ? `fwd ${fmt(summary.rightLeg.forward)}` : '', summary.rightLeg.out ? `out ${fmt(summary.rightLeg.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="L lower leg" value={[summary.leftLowerLeg.forward ? `fwd ${fmt(summary.leftLowerLeg.forward)}` : '', summary.leftLowerLeg.out ? `out ${fmt(summary.leftLowerLeg.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="R lower leg" value={[summary.rightLowerLeg.forward ? `fwd ${fmt(summary.rightLowerLeg.forward)}` : '', summary.rightLowerLeg.out ? `out ${fmt(summary.rightLowerLeg.out)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="L foot" value={[summary.leftFoot.forward ? `fwd ${fmt(summary.leftFoot.forward)}` : '', summary.leftFoot.out ? `out ${fmt(summary.leftFoot.out)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="R foot" value={[summary.rightFoot.forward ? `fwd ${fmt(summary.rightFoot.forward)}` : '', summary.rightFoot.out ? `out ${fmt(summary.rightFoot.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="Stance" value={fmt(summary.stance.width)} />
         </>)}
       </div>
+
+      {/* Entire body */}
+      <Group label="Entire Body">
+        <ColPair>
+          <Col>
+            <Btn label="↑" onClick={() => pushPoseOp(wholeRotate('x', -NUDGE.whole))} />
+            <Btn label="↓" onClick={() => pushPoseOp(wholeRotate('x', NUDGE.whole))} />
+          </Col>
+          <Col>
+            <Btn label="↺ L" onClick={() => pushPoseOp(wholeRotate('y', -NUDGE.whole))} />
+            <Btn label="↻ R" onClick={() => pushPoseOp(wholeRotate('y', NUDGE.whole))} />
+          </Col>
+          <Col>
+            <Btn label="Tilt L" onClick={() => pushPoseOp(wholeRotate('z', NUDGE.whole))} />
+            <Btn label="Tilt R" onClick={() => pushPoseOp(wholeRotate('z', -NUDGE.whole))} />
+          </Col>
+          <Col>
+            <Btn label="Larger" onClick={scaleUp} />
+            <Btn label="Smaller" onClick={scaleDown} />
+          </Col>
+        </ColPair>
+      </Group>
 
       {/* Head */}
       <Group label="Head">
@@ -221,24 +295,24 @@ export function PoseAdjustToolbar() {
           left={
             <ColPair>
               <Col>
-                <Btn label="Lift" onClick={() => pushPoseOp(foreArmFlex('left', NUDGE.foreArm))} />
-                <Btn label="Lower" onClick={() => pushPoseOp(foreArmFlex('left', -NUDGE.foreArm))} />
+                <Btn tone="light" label="Lift" onClick={() => pushPoseOp(foreArmFlex('left', NUDGE.foreArm))} />
+                <Btn tone="light" label="Lower" onClick={() => pushPoseOp(foreArmFlex('left', -NUDGE.foreArm))} />
               </Col>
               <Col>
-                <Btn label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('left', -NUDGE.foreArm))} />
-                <Btn label="Turn In" onClick={() => pushPoseOp(foreArmTwist('left', NUDGE.foreArm))} />
+                <Btn tone="light" label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('left', -NUDGE.foreArm))} />
+                <Btn tone="light" label="Turn In" onClick={() => pushPoseOp(foreArmTwist('left', NUDGE.foreArm))} />
               </Col>
             </ColPair>
           }
           right={
             <ColPair>
               <Col>
-                <Btn label="Lift" onClick={() => pushPoseOp(foreArmFlex('right', NUDGE.foreArm))} />
-                <Btn label="Lower" onClick={() => pushPoseOp(foreArmFlex('right', -NUDGE.foreArm))} />
+                <Btn tone="light" label="Lift" onClick={() => pushPoseOp(foreArmFlex('right', NUDGE.foreArm))} />
+                <Btn tone="light" label="Lower" onClick={() => pushPoseOp(foreArmFlex('right', -NUDGE.foreArm))} />
               </Col>
               <Col>
-                <Btn label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('right', NUDGE.foreArm))} />
-                <Btn label="Turn In" onClick={() => pushPoseOp(foreArmTwist('right', -NUDGE.foreArm))} />
+                <Btn tone="light" label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('right', NUDGE.foreArm))} />
+                <Btn tone="light" label="Turn In" onClick={() => pushPoseOp(foreArmTwist('right', -NUDGE.foreArm))} />
               </Col>
             </ColPair>
           }
@@ -296,75 +370,47 @@ export function PoseAdjustToolbar() {
         <TwoCol
           leftLabel="Left thigh"
           rightLabel="Right thigh"
-          left={
-            <ColPair>
-              <Col>
-                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('left', { forward: NUDGE.legForward }))} />
-                <Btn label="Back" onClick={() => pushPoseOp(legNudge('left', { forward: -NUDGE.legForward }))} />
-              </Col>
-              <Col>
-                <Btn label="Out" onClick={() => pushPoseOp(legNudge('left', { out: NUDGE.legOut }))} />
-                <Btn label="In" onClick={() => pushPoseOp(legNudge('left', { out: -NUDGE.legOut }))} />
-              </Col>
-            </ColPair>
-          }
-          right={
-            <ColPair>
-              <Col>
-                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('right', { forward: NUDGE.legForward }))} />
-                <Btn label="Back" onClick={() => pushPoseOp(legNudge('right', { forward: -NUDGE.legForward }))} />
-              </Col>
-              <Col>
-                <Btn label="Out" onClick={() => pushPoseOp(legNudge('right', { out: NUDGE.legOut }))} />
-                <Btn label="In" onClick={() => pushPoseOp(legNudge('right', { out: -NUDGE.legOut }))} />
-              </Col>
-            </ColPair>
-          }
+          left={<LegColPair side="left" part="thigh" pushPoseOp={pushPoseOp} />}
+          right={<LegColPair side="right" part="thigh" pushPoseOp={pushPoseOp} />}
         />
         <TwoCol
           leftLabel="Left lower leg"
           rightLabel="Right lower leg"
-          left={
-            <ColPair>
-              <Col>
-                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('left', { forward: NUDGE.legForward }, 'lower'))} />
-                <Btn label="Back" onClick={() => pushPoseOp(legNudge('left', { forward: -NUDGE.legForward }, 'lower'))} />
-              </Col>
-              <Col>
-                <Btn label="Out" onClick={() => pushPoseOp(legNudge('left', { out: NUDGE.legOut }, 'lower'))} />
-                <Btn label="In" onClick={() => pushPoseOp(legNudge('left', { out: -NUDGE.legOut }, 'lower'))} />
-              </Col>
-            </ColPair>
-          }
-          right={
-            <ColPair>
-              <Col>
-                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('right', { forward: NUDGE.legForward }, 'lower'))} />
-                <Btn label="Back" onClick={() => pushPoseOp(legNudge('right', { forward: -NUDGE.legForward }, 'lower'))} />
-              </Col>
-              <Col>
-                <Btn label="Out" onClick={() => pushPoseOp(legNudge('right', { out: NUDGE.legOut }, 'lower'))} />
-                <Btn label="In" onClick={() => pushPoseOp(legNudge('right', { out: -NUDGE.legOut }, 'lower'))} />
-              </Col>
-            </ColPair>
-          }
+          left={<LegColPair side="left" part="lower" tone="light" pushPoseOp={pushPoseOp} />}
+          right={<LegColPair side="right" part="lower" tone="light" pushPoseOp={pushPoseOp} />}
+        />
+      </Group>
+
+      {/* Feet */}
+      <Group label="Feet">
+        <TwoCol
+          leftLabel="Left foot"
+          rightLabel="Right foot"
+          left={<LegColPair side="left" part="foot" tone="light" pushPoseOp={pushPoseOp} />}
+          right={<LegColPair side="right" part="foot" tone="light" pushPoseOp={pushPoseOp} />}
         />
       </Group>
 
       {/* Torso & Stance */}
       <Group label="Torso &amp; Stance">
-        <Row>
-          <Btn label="Lean fwd" onClick={() => pushPoseOp(torsoNudge(NUDGE.torso, 0))} />
-          <Btn label="Lean back" onClick={() => pushPoseOp(torsoNudge(-NUDGE.torso, 0))} />
-        </Row>
-        <Row>
-          <Btn label="Turn L" onClick={() => pushPoseOp(torsoNudge(0, NUDGE.torso))} />
-          <Btn label="Turn R" onClick={() => pushPoseOp(torsoNudge(0, -NUDGE.torso))} />
-        </Row>
-        <Row>
-          <Btn label="Wider" onClick={() => pushPoseOp(stanceNudge(NUDGE.stance))} />
-          <Btn label="Narrower" onClick={() => pushPoseOp(stanceNudge(-NUDGE.stance))} />
-        </Row>
+        <ColPair>
+          <Col>
+            <Btn label="Lean fwd" onClick={() => pushPoseOp(torsoNudge(NUDGE.torso, 0))} />
+            <Btn label="Lean back" onClick={() => pushPoseOp(torsoNudge(-NUDGE.torso, 0))} />
+          </Col>
+          <Col>
+            <Btn label="Turn L" onClick={() => pushPoseOp(torsoNudge(0, NUDGE.torso))} />
+            <Btn label="Turn R" onClick={() => pushPoseOp(torsoNudge(0, -NUDGE.torso))} />
+          </Col>
+          <Col>
+            <Btn label="Lean L" onClick={() => pushPoseOp(torsoNudge(0, 0, NUDGE.torso))} />
+            <Btn label="Lean R" onClick={() => pushPoseOp(torsoNudge(0, 0, -NUDGE.torso))} />
+          </Col>
+          <Col>
+            <Btn label="Wider" onClick={() => pushPoseOp(stanceNudge(NUDGE.stance))} />
+            <Btn label="Narrower" onClick={() => pushPoseOp(stanceNudge(-NUDGE.stance))} />
+          </Col>
+        </ColPair>
       </Group>
 
       {/* Save / reset */}
