@@ -1,31 +1,102 @@
 import { create } from 'zustand'
+import type { BodyPartId } from '@/lib/bodyParts'
+import type { CharacterModel } from '@/lib/characterModels'
+import { appendPoseOp, type PoseOp } from '@/lib/poseCompose'
+import type { Pose } from '@/lib/poses'
 
-export type TransformMode = 'translate' | 'scale'
+export type InteractionMode = 'transform' | 'pose'
 
 export type StoreState = {
   modelUrl: string
-  currentPose: string
+  characterModels: CharacterModel[]
+  posePresets: Record<string, Pose>
+  basePoseId: string
+  poseAdjustments: PoseOp[]
+  poseAdjustmentPast: PoseOp[][]
+  poseAdjustmentFuture: PoseOp[][]
+  interactionMode: InteractionMode
+  selectedBodyPart: BodyPartId | null
   backdropUrl: string
   frameWidth: number
   frameHeight: number
   characterX: number
   characterY: number
+  characterZ: number
+  characterRotationY: number
   characterScale: number
-  transformMode: TransformMode
   characterError: string | null
   set: (partial: Partial<StoreState>) => void
+  pushPoseOp: (op: PoseOp) => void
+  undoPoseAdjustment: () => void
+  redoPoseAdjustment: () => void
+  resetPoseAdjustments: () => void
+  setBasePoseId: (id: string) => void
 }
 
-export const useStore = create<StoreState>((set) => ({
-  modelUrl: '/models/xbot_mixamo.glb',
-  currentPose: 'pointing_right',
+export const useStore = create<StoreState>((set, get) => ({
+  modelUrl: '',
+  characterModels: [],
+  posePresets: {},
+  basePoseId: 't_pose',
+  poseAdjustments: [],
+  poseAdjustmentPast: [],
+  poseAdjustmentFuture: [],
+  interactionMode: 'transform',
+  selectedBodyPart: null,
   backdropUrl: '/default_backdrop.jpg',
   frameWidth: 16,
   frameHeight: 9,
   characterX: 0,
   characterY: 0,
+  characterZ: 0,
+  characterRotationY: 0,
   characterScale: 1,
-  transformMode: 'translate',
   characterError: null,
   set: (partial) => set(partial),
+  pushPoseOp: (op) => {
+    const { poseAdjustments, poseAdjustmentPast } = get()
+    set({
+      poseAdjustmentPast: [...poseAdjustmentPast, poseAdjustments],
+      poseAdjustments: appendPoseOp(poseAdjustments, op),
+      poseAdjustmentFuture: [],
+    })
+  },
+  undoPoseAdjustment: () => {
+    const { poseAdjustments, poseAdjustmentPast, poseAdjustmentFuture } = get()
+    if (poseAdjustmentPast.length === 0) return
+    const previous = poseAdjustmentPast[poseAdjustmentPast.length - 1]
+    set({
+      poseAdjustments: previous,
+      poseAdjustmentPast: poseAdjustmentPast.slice(0, -1),
+      poseAdjustmentFuture: [poseAdjustments, ...poseAdjustmentFuture],
+    })
+  },
+  redoPoseAdjustment: () => {
+    const { poseAdjustments, poseAdjustmentPast, poseAdjustmentFuture } = get()
+    if (poseAdjustmentFuture.length === 0) return
+    const next = poseAdjustmentFuture[0]
+    set({
+      poseAdjustments: next,
+      poseAdjustmentPast: [...poseAdjustmentPast, poseAdjustments],
+      poseAdjustmentFuture: poseAdjustmentFuture.slice(1),
+    })
+  },
+  resetPoseAdjustments: () => {
+    const { poseAdjustments, poseAdjustmentPast } = get()
+    if (poseAdjustments.length === 0) return
+    set({
+      poseAdjustmentPast: [...poseAdjustmentPast, poseAdjustments],
+      poseAdjustments: [],
+      poseAdjustmentFuture: [],
+    })
+  },
+  setBasePoseId: (id) => {
+    set({
+      basePoseId: id,
+      poseAdjustments: [],
+      poseAdjustmentPast: [],
+      poseAdjustmentFuture: [],
+      selectedBodyPart: null,
+    })
+  },
 }))
