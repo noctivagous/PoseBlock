@@ -10,6 +10,8 @@ export const NUDGE = {
   armRaise: 10,
   armOut: 8,
   foreArm: 10,
+  legForward: 12,
+  legOut: 8,
   torso: 6,
   stance: 4,
   whole: 6,
@@ -45,6 +47,28 @@ export function torsoNudge(pitch?: number, yaw?: number): PoseOp {
 
 export function stanceNudge(width: number): PoseOp {
   return { type: 'nudgeStance', width }
+}
+
+export function legNudge(
+  side: 'left' | 'right',
+  fields: { forward?: number; out?: number }
+): PoseOp {
+  return { type: 'nudgeLeg', side, ...fields }
+}
+
+/** Turn Out / Turn In — forearm supination/pronation (Y-axis twist) */
+export function foreArmTwist(side: 'left' | 'right', degrees: number): PoseOp {
+  return { type: 'nudgeArm', side, foreArm: degrees }
+}
+
+/** Lift / Lower — forearm flexion/extension relative to upper arm (Z-axis) */
+export function foreArmFlex(side: 'left' | 'right', degrees: number): PoseOp {
+  return { type: 'nudgeArm', side, foreArmFlex: degrees }
+}
+
+/** @deprecated use foreArmTwist or foreArmFlex */
+export function foreArmNudge(side: 'left' | 'right', foreArm: number): PoseOp {
+  return foreArmTwist(side, foreArm)
 }
 
 export function opsForBodyPart(
