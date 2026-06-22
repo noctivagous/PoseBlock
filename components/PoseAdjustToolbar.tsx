@@ -6,6 +6,7 @@ import {
   foreArmFlex,
   foreArmTwist,
   handGesture,
+  handRotate,
   headRotate,
   legNudge,
   NUDGE,
@@ -21,7 +22,7 @@ function Btn({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-white/90 hover:bg-zinc-700"
+      className="flex-1 select-none rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-white/90 hover:bg-zinc-700"
     >
       {label}
     </button>
@@ -141,11 +142,11 @@ export function PoseAdjustToolbar() {
       <div className="flex items-center gap-1">
         <span className="flex-1 text-[10px] text-white/50">Adjust pose · {poseAdjustments.length} ops</span>
         <button type="button" onClick={undoPoseAdjustment} disabled={poseAdjustmentPast.length === 0}
-          className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
+          className="select-none rounded bg-zinc-800 px-2 py-0.5 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
           Undo
         </button>
         <button type="button" onClick={redoPoseAdjustment} disabled={poseAdjustmentFuture.length === 0}
-          className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
+          className="select-none rounded bg-zinc-800 px-2 py-0.5 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
           Redo
         </button>
       </div>
@@ -162,10 +163,12 @@ export function PoseAdjustToolbar() {
           <SummaryLine label="R arm" value={[summary.rightArm.raise ? `raise ${fmt(summary.rightArm.raise)}` : '', summary.rightArm.out ? `out ${fmt(summary.rightArm.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="L forearm" value={fmt(summary.leftForeArm)} />
           <SummaryLine label="R forearm" value={fmt(summary.rightForeArm)} />
-          <SummaryLine label="L hand" value={summary.leftHand ?? ''} />
-          <SummaryLine label="R hand" value={summary.rightHand ?? ''} />
+          <SummaryLine label="L hand" value={[summary.leftHand ?? '', [fmt(summary.leftHandRot.pitch), fmt(summary.leftHandRot.yaw)].filter(Boolean).join(' ')].filter(Boolean).join(' · ')} />
+          <SummaryLine label="R hand" value={[summary.rightHand ?? '', [fmt(summary.rightHandRot.pitch), fmt(summary.rightHandRot.yaw)].filter(Boolean).join(' ')].filter(Boolean).join(' · ')} />
           <SummaryLine label="L thigh" value={[summary.leftLeg.forward ? `fwd ${fmt(summary.leftLeg.forward)}` : '', summary.leftLeg.out ? `out ${fmt(summary.leftLeg.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="R thigh" value={[summary.rightLeg.forward ? `fwd ${fmt(summary.rightLeg.forward)}` : '', summary.rightLeg.out ? `out ${fmt(summary.rightLeg.out)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="L lower leg" value={[summary.leftLowerLeg.forward ? `fwd ${fmt(summary.leftLowerLeg.forward)}` : '', summary.leftLowerLeg.out ? `out ${fmt(summary.leftLowerLeg.out)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="R lower leg" value={[summary.rightLowerLeg.forward ? `fwd ${fmt(summary.rightLowerLeg.forward)}` : '', summary.rightLowerLeg.out ? `out ${fmt(summary.rightLowerLeg.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="Stance" value={fmt(summary.stance.width)} />
         </>)}
       </div>
@@ -247,20 +250,44 @@ export function PoseAdjustToolbar() {
         <TwoCol
           leftLabel="Left"
           rightLabel="Right"
-          left={<>
-            <Row>
-              <Btn label="Point" onClick={() => pushPoseOp(handGesture('left', 'point'))} />
-              <Btn label="Fist" onClick={() => pushPoseOp(handGesture('left', 'fist'))} />
-              <Btn label="Open" onClick={() => pushPoseOp(handGesture('left', 'open'))} />
-            </Row>
-          </>}
-          right={<>
-            <Row>
-              <Btn label="Point" onClick={() => pushPoseOp(handGesture('right', 'point'))} />
-              <Btn label="Fist" onClick={() => pushPoseOp(handGesture('right', 'fist'))} />
-              <Btn label="Open" onClick={() => pushPoseOp(handGesture('right', 'open'))} />
-            </Row>
-          </>}
+          left={
+            <>
+              <ColPair>
+                <Col>
+                  <Btn label="Up" onClick={() => pushPoseOp(handRotate('left', 'up'))} />
+                  <Btn label="Down" onClick={() => pushPoseOp(handRotate('left', 'down'))} />
+                </Col>
+                <Col>
+                  <Btn label="Out" onClick={() => pushPoseOp(handRotate('left', 'out'))} />
+                  <Btn label="In" onClick={() => pushPoseOp(handRotate('left', 'in'))} />
+                </Col>
+              </ColPair>
+              <Row>
+                <Btn label="Point" onClick={() => pushPoseOp(handGesture('left', 'point'))} />
+                <Btn label="Fist" onClick={() => pushPoseOp(handGesture('left', 'fist'))} />
+                <Btn label="Open" onClick={() => pushPoseOp(handGesture('left', 'open'))} />
+              </Row>
+            </>
+          }
+          right={
+            <>
+              <ColPair>
+                <Col>
+                  <Btn label="Up" onClick={() => pushPoseOp(handRotate('right', 'up'))} />
+                  <Btn label="Down" onClick={() => pushPoseOp(handRotate('right', 'down'))} />
+                </Col>
+                <Col>
+                  <Btn label="Out" onClick={() => pushPoseOp(handRotate('right', 'out'))} />
+                  <Btn label="In" onClick={() => pushPoseOp(handRotate('right', 'in'))} />
+                </Col>
+              </ColPair>
+              <Row>
+                <Btn label="Point" onClick={() => pushPoseOp(handGesture('right', 'point'))} />
+                <Btn label="Fist" onClick={() => pushPoseOp(handGesture('right', 'fist'))} />
+                <Btn label="Open" onClick={() => pushPoseOp(handGesture('right', 'open'))} />
+              </Row>
+            </>
+          }
         />
       </Group>
 
@@ -269,26 +296,58 @@ export function PoseAdjustToolbar() {
         <TwoCol
           leftLabel="Left thigh"
           rightLabel="Right thigh"
-          left={<>
-            <Row>
-              <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('left', { forward: NUDGE.legForward }))} />
-              <Btn label="Back" onClick={() => pushPoseOp(legNudge('left', { forward: -NUDGE.legForward }))} />
-            </Row>
-            <Row>
-              <Btn label="Out" onClick={() => pushPoseOp(legNudge('left', { out: NUDGE.legOut }))} />
-              <Btn label="In" onClick={() => pushPoseOp(legNudge('left', { out: -NUDGE.legOut }))} />
-            </Row>
-          </>}
-          right={<>
-            <Row>
-              <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('right', { forward: NUDGE.legForward }))} />
-              <Btn label="Back" onClick={() => pushPoseOp(legNudge('right', { forward: -NUDGE.legForward }))} />
-            </Row>
-            <Row>
-              <Btn label="Out" onClick={() => pushPoseOp(legNudge('right', { out: NUDGE.legOut }))} />
-              <Btn label="In" onClick={() => pushPoseOp(legNudge('right', { out: -NUDGE.legOut }))} />
-            </Row>
-          </>}
+          left={
+            <ColPair>
+              <Col>
+                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('left', { forward: NUDGE.legForward }))} />
+                <Btn label="Back" onClick={() => pushPoseOp(legNudge('left', { forward: -NUDGE.legForward }))} />
+              </Col>
+              <Col>
+                <Btn label="Out" onClick={() => pushPoseOp(legNudge('left', { out: NUDGE.legOut }))} />
+                <Btn label="In" onClick={() => pushPoseOp(legNudge('left', { out: -NUDGE.legOut }))} />
+              </Col>
+            </ColPair>
+          }
+          right={
+            <ColPair>
+              <Col>
+                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('right', { forward: NUDGE.legForward }))} />
+                <Btn label="Back" onClick={() => pushPoseOp(legNudge('right', { forward: -NUDGE.legForward }))} />
+              </Col>
+              <Col>
+                <Btn label="Out" onClick={() => pushPoseOp(legNudge('right', { out: NUDGE.legOut }))} />
+                <Btn label="In" onClick={() => pushPoseOp(legNudge('right', { out: -NUDGE.legOut }))} />
+              </Col>
+            </ColPair>
+          }
+        />
+        <TwoCol
+          leftLabel="Left lower leg"
+          rightLabel="Right lower leg"
+          left={
+            <ColPair>
+              <Col>
+                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('left', { forward: NUDGE.legForward }, 'lower'))} />
+                <Btn label="Back" onClick={() => pushPoseOp(legNudge('left', { forward: -NUDGE.legForward }, 'lower'))} />
+              </Col>
+              <Col>
+                <Btn label="Out" onClick={() => pushPoseOp(legNudge('left', { out: NUDGE.legOut }, 'lower'))} />
+                <Btn label="In" onClick={() => pushPoseOp(legNudge('left', { out: -NUDGE.legOut }, 'lower'))} />
+              </Col>
+            </ColPair>
+          }
+          right={
+            <ColPair>
+              <Col>
+                <Btn label="Fwd" onClick={() => pushPoseOp(legNudge('right', { forward: NUDGE.legForward }, 'lower'))} />
+                <Btn label="Back" onClick={() => pushPoseOp(legNudge('right', { forward: -NUDGE.legForward }, 'lower'))} />
+              </Col>
+              <Col>
+                <Btn label="Out" onClick={() => pushPoseOp(legNudge('right', { out: NUDGE.legOut }, 'lower'))} />
+                <Btn label="In" onClick={() => pushPoseOp(legNudge('right', { out: -NUDGE.legOut }, 'lower'))} />
+              </Col>
+            </ColPair>
+          }
         />
       </Group>
 
@@ -311,11 +370,11 @@ export function PoseAdjustToolbar() {
       {/* Save / reset */}
       <div className="flex gap-1 pt-0.5">
         <button type="button" onClick={resetPoseAdjustments} disabled={poseAdjustments.length === 0}
-          className="flex-1 rounded bg-zinc-800 px-2 py-1 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
+          className="flex-1 select-none rounded bg-zinc-800 px-2 py-1 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
           Reset edits
         </button>
         <button type="button" onClick={savePose} disabled={!composedPose}
-          className="flex-1 rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600 disabled:opacity-40">
+          className="flex-1 select-none rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600 disabled:opacity-40">
           Save pose
         </button>
       </div>

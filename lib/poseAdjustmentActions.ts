@@ -10,6 +10,7 @@ export const NUDGE = {
   armRaise: 10,
   armOut: 8,
   foreArm: 10,
+  hand: 8,
   legForward: 12,
   legOut: 8,
   torso: 6,
@@ -51,9 +52,39 @@ export function stanceNudge(width: number): PoseOp {
 
 export function legNudge(
   side: 'left' | 'right',
-  fields: { forward?: number; out?: number }
+  fields: { forward?: number; out?: number },
+  part: 'thigh' | 'lower' = 'thigh'
 ): PoseOp {
-  return { type: 'nudgeLeg', side, ...fields }
+  return { type: 'nudgeLeg', side, part, ...fields }
+}
+
+/** Wrist rotation on LeftHand / RightHand */
+export function handRotate(
+  side: 'left' | 'right',
+  axis: 'up' | 'down' | 'out' | 'in'
+): PoseOp {
+  const bone = side === 'left' ? 'LeftHand' : 'RightHand'
+  const n = NUDGE.hand
+  switch (axis) {
+    case 'up':
+      return { type: 'rotateBone', bone, axis: 'x', degrees: -n }
+    case 'down':
+      return { type: 'rotateBone', bone, axis: 'x', degrees: n }
+    case 'out':
+      return {
+        type: 'rotateBone',
+        bone,
+        axis: 'y',
+        degrees: side === 'left' ? n : -n,
+      }
+    case 'in':
+      return {
+        type: 'rotateBone',
+        bone,
+        axis: 'y',
+        degrees: side === 'left' ? -n : n,
+      }
+  }
 }
 
 /** Turn Out / Turn In — forearm supination/pronation (Y-axis twist) */
@@ -107,11 +138,19 @@ export function opsForBodyPart(
       if (action === 'fore-') return armNudge('right', { foreArm: -NUDGE.foreArm })
       break
     case 'leftHand':
+      if (action === 'up') return handRotate('left', 'up')
+      if (action === 'down') return handRotate('left', 'down')
+      if (action === 'out') return handRotate('left', 'out')
+      if (action === 'in') return handRotate('left', 'in')
       if (action === 'point') return handGesture('left', 'point')
       if (action === 'fist') return handGesture('left', 'fist')
       if (action === 'open') return handGesture('left', 'open')
       break
     case 'rightHand':
+      if (action === 'up') return handRotate('right', 'up')
+      if (action === 'down') return handRotate('right', 'down')
+      if (action === 'out') return handRotate('right', 'out')
+      if (action === 'in') return handRotate('right', 'in')
       if (action === 'point') return handGesture('right', 'point')
       if (action === 'fist') return handGesture('right', 'fist')
       if (action === 'open') return handGesture('right', 'open')
