@@ -32,6 +32,16 @@ function Row({ children }: { children: React.ReactNode }) {
   return <div className="flex gap-0.5">{children}</div>
 }
 
+/** Vertical button pair (e.g. Raise above Lower) */
+function Col({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-1 flex-col gap-0.5">{children}</div>
+}
+
+/** Side-by-side vertical pairs */
+function ColPair({ children }: { children: React.ReactNode }) {
+  return <div className="flex gap-0.5">{children}</div>
+}
+
 /** Compact fieldset grouping with a legend label */
 function Group({
   label,
@@ -177,50 +187,58 @@ export function PoseAdjustToolbar() {
         <TwoCol
           leftLabel="Left Upper arm"
           rightLabel="Right Upper arm"
-          left={<>
-            <Row>
-              <Btn label="Raise" onClick={() => pushPoseOp(armNudge('left', { raise: NUDGE.armRaise }))} />
-              <Btn label="Lower" onClick={() => pushPoseOp(armNudge('left', { raise: -NUDGE.armRaise }))} />
-            </Row>
-            <Row>
-              <Btn label="Out" onClick={() => pushPoseOp(armNudge('left', { out: NUDGE.armOut }))} />
-              <Btn label="In" onClick={() => pushPoseOp(armNudge('left', { out: -NUDGE.armOut }))} />
-            </Row>
-          </>}
-          right={<>
-            <Row>
-              <Btn label="Raise" onClick={() => pushPoseOp(armNudge('right', { raise: NUDGE.armRaise }))} />
-              <Btn label="Lower" onClick={() => pushPoseOp(armNudge('right', { raise: -NUDGE.armRaise }))} />
-            </Row>
-            <Row>
-              <Btn label="Out" onClick={() => pushPoseOp(armNudge('right', { out: NUDGE.armOut }))} />
-              <Btn label="In" onClick={() => pushPoseOp(armNudge('right', { out: -NUDGE.armOut }))} />
-            </Row>
-          </>}
+          left={
+            <ColPair>
+              <Col>
+                <Btn label="Raise" onClick={() => pushPoseOp(armNudge('left', { raise: NUDGE.armRaise }))} />
+                <Btn label="Lower" onClick={() => pushPoseOp(armNudge('left', { raise: -NUDGE.armRaise }))} />
+              </Col>
+              <Col>
+                <Btn label="Out" onClick={() => pushPoseOp(armNudge('left', { out: NUDGE.armOut }))} />
+                <Btn label="In" onClick={() => pushPoseOp(armNudge('left', { out: -NUDGE.armOut }))} />
+              </Col>
+            </ColPair>
+          }
+          right={
+            <ColPair>
+              <Col>
+                <Btn label="Raise" onClick={() => pushPoseOp(armNudge('right', { raise: NUDGE.armRaise }))} />
+                <Btn label="Lower" onClick={() => pushPoseOp(armNudge('right', { raise: -NUDGE.armRaise }))} />
+              </Col>
+              <Col>
+                <Btn label="Out" onClick={() => pushPoseOp(armNudge('right', { out: NUDGE.armOut }))} />
+                <Btn label="In" onClick={() => pushPoseOp(armNudge('right', { out: -NUDGE.armOut }))} />
+              </Col>
+            </ColPair>
+          }
         />
         <TwoCol
           leftLabel="Left Forearm"
           rightLabel="Right Forearm"
-          left={<>
-            <Row>
-              <Btn label="Lift" onClick={() => pushPoseOp(foreArmFlex('left', -NUDGE.foreArm))} />
-              <Btn label="Lower" onClick={() => pushPoseOp(foreArmFlex('left', NUDGE.foreArm))} />
-            </Row>
-            <Row>
-              <Btn label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('left', -NUDGE.foreArm))} />
-              <Btn label="Turn In" onClick={() => pushPoseOp(foreArmTwist('left', NUDGE.foreArm))} />
-            </Row>
-          </>}
-          right={<>
-            <Row>
-              <Btn label="Lift" onClick={() => pushPoseOp(foreArmFlex('right', -NUDGE.foreArm))} />
-              <Btn label="Lower" onClick={() => pushPoseOp(foreArmFlex('right', NUDGE.foreArm))} />
-            </Row>
-            <Row>
-              <Btn label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('right', NUDGE.foreArm))} />
-              <Btn label="Turn In" onClick={() => pushPoseOp(foreArmTwist('right', -NUDGE.foreArm))} />
-            </Row>
-          </>}
+          left={
+            <ColPair>
+              <Col>
+                <Btn label="Lift" onClick={() => pushPoseOp(foreArmFlex('left', NUDGE.foreArm))} />
+                <Btn label="Lower" onClick={() => pushPoseOp(foreArmFlex('left', -NUDGE.foreArm))} />
+              </Col>
+              <Col>
+                <Btn label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('left', -NUDGE.foreArm))} />
+                <Btn label="Turn In" onClick={() => pushPoseOp(foreArmTwist('left', NUDGE.foreArm))} />
+              </Col>
+            </ColPair>
+          }
+          right={
+            <ColPair>
+              <Col>
+                <Btn label="Lift" onClick={() => pushPoseOp(foreArmFlex('right', NUDGE.foreArm))} />
+                <Btn label="Lower" onClick={() => pushPoseOp(foreArmFlex('right', -NUDGE.foreArm))} />
+              </Col>
+              <Col>
+                <Btn label="Turn Out" onClick={() => pushPoseOp(foreArmTwist('right', NUDGE.foreArm))} />
+                <Btn label="Turn In" onClick={() => pushPoseOp(foreArmTwist('right', -NUDGE.foreArm))} />
+              </Col>
+            </ColPair>
+          }
         />
       </Group>
 

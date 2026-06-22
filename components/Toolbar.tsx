@@ -54,11 +54,11 @@ export function Toolbar() {
             </option>
           ))}
         </select>
-        {poseAdjustments.length > 0 && (
-          <span className="text-xs text-amber-300/80">
-            {poseAdjustments.length} adjustment(s) applied
-          </span>
-        )}
+        <span className="block min-h-4 text-xs text-amber-300/80">
+          {poseAdjustments.length > 0
+            ? `${poseAdjustments.length} adjustment(s) applied`
+            : null}
+        </span>
       </label>
 
       <div className="flex flex-col gap-1">
