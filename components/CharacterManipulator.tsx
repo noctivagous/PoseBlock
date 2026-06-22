@@ -51,13 +51,15 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
   const fit = useMemo(() => {
     const box = new THREE.Box3().setFromObject(clonedScene)
     const size = new THREE.Vector3()
+    const center = new THREE.Vector3()
     box.getSize(size)
+    box.getCenter(center)
 
     const safeHeight = size.y > 0 ? size.y : 1
     const scale = TARGET_MODEL_HEIGHT / safeHeight
     const yOffset = -box.min.y * scale
 
-    return { scale, yOffset }
+    return { scale, yOffset, size, center }
   }, [clonedScene])
 
   useEffect(() => {
@@ -171,7 +173,9 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
     >
       <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
         <primitive object={clonedScene} />
-        {interactionMode === 'transform' && <BoundingBoxGizmo object={clonedScene} />}
+        {interactionMode === 'transform' && (
+          <BoundingBoxGizmo size={fit.size} center={fit.center} />
+        )}
         {skeleton && (
           <>
             <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />

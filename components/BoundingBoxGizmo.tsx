@@ -2,7 +2,7 @@
 
 import { Html } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import * as THREE from 'three'
 import {
   clampCharacterZ,
@@ -13,15 +13,6 @@ import { useStore } from '@/lib/store'
 const ROT_STEP = 15
 const MIN_SCALE = 0.15
 const MAX_SCALE = 4
-
-function computeBounds(object: THREE.Object3D) {
-  const box = new THREE.Box3().setFromObject(object)
-  const size = new THREE.Vector3()
-  const center = new THREE.Vector3()
-  box.getSize(size)
-  box.getCenter(center)
-  return { size, center }
-}
 
 function GizmoBtn({
   label,
@@ -49,15 +40,14 @@ function GizmoBtn({
 }
 
 type BoundingBoxGizmoProps = {
-  object: THREE.Object3D
+  size: THREE.Vector3
+  center: THREE.Vector3
 }
 
-export function BoundingBoxGizmo({ object }: BoundingBoxGizmoProps) {
+export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
   const set = useStore((s) => s.set)
   const characterScale = useStore((s) => s.characterScale)
   const scaleDrag = useRef<{ startScale: number; startY: number } | null>(null)
-
-  const { size, center } = useMemo(() => computeBounds(object), [object])
 
   const halfX = size.x / 2
   const halfY = size.y / 2
