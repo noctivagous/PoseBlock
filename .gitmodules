@@ -1,0 +1,3 @@
+[submodule "tools/fbx2.1glb"]
+	path = tools/fbx2.1glb
+	url = https://github.com/weg901127/fbx2.1glb.git

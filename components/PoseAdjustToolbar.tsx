@@ -14,6 +14,7 @@ import {
   torsoNudge,
   wholeRotate,
 } from '@/lib/poseAdjustmentActions'
+import { clampCharacterZ, depthScaleFactor, Z_STEP } from '@/lib/characterTransform'
 import { getAllPosePresets } from '@/lib/posePresets'
 import { useStore } from '@/lib/store'
 import { useMemo } from 'react'
@@ -102,7 +103,7 @@ function TwoCol({
 function SummaryLine({ label, value }: { label: string; value: string }) {
   if (!value) return null
   return (
-    <div className="flex justify-between gap-2 text-[10px] text-white/55">
+    <div className="flex justify-between gap-2 text-[10px] leading-[14px] text-white/55">
       <span>{label}</span>
       <span className="text-white/80">{value}</span>
     </div>
@@ -153,6 +154,19 @@ export function PoseAdjustToolbar() {
   const scaleDown = () =>
     set({ characterScale: Math.max(MIN_SCALE, characterScale - SCALE_STEP) })
 
+  // Toward / Away: change Z (which affects display scale) and shift Y to keep
+  // the character's feet roughly stationary on screen.
+  const dolly = (direction: 1 | -1) => {
+    const { characterZ, characterY, characterScale: cs } = useStore.getState()
+    const newZ = clampCharacterZ(characterZ + direction * Z_STEP)
+    const oldFactor = depthScaleFactor(characterZ)
+    const newFactor = depthScaleFactor(newZ)
+    // Visual half-height ≈ characterScale * oldFactor * 0.9 (TARGET_MODEL_HEIGHT/2)
+    const halfH = cs * oldFactor * 0.9
+    const centerShift = halfH * (newFactor / oldFactor - 1)
+    set({ characterZ: newZ, characterY: characterY + centerShift })
+  }
+
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
   const composedPose = useMemo(() => {
     const base = availablePoses[basePoseId]
@@ -200,10 +214,10 @@ export function PoseAdjustToolbar() {
         </button>
       </div>
 
-      {/* Summary — fixed height to prevent layout shift */}
-      <div className="flex min-h-[4.5rem] flex-col gap-0 rounded bg-zinc-900/60 px-1.5 py-1">
+      {/* Summary — fixed 4-line height, scroll when longer */}
+      <div className="h-16 overflow-y-auto rounded bg-zinc-900/60 px-1.5 py-1">
         {poseAdjustments.length === 0 && (
-          <span className="text-[10px] text-white/25 italic">No edits yet</span>
+          <span className="text-[10px] leading-[14px] text-white/25 italic">No edits yet</span>
         )}
         {poseAdjustments.length > 0 && (<>
           <SummaryLine label="Whole" value={[fmt(summary.whole.pitch), fmt(summary.whole.yaw), fmt(summary.whole.roll)].filter(Boolean).join(' ')} />
@@ -243,6 +257,10 @@ export function PoseAdjustToolbar() {
           <Col>
             <Btn label="Larger" onClick={scaleUp} />
             <Btn label="Smaller" onClick={scaleDown} />
+          </Col>
+          <Col>
+            <Btn label="Toward" onClick={() => dolly(1)} />
+            <Btn label="Away" onClick={() => dolly(-1)} />
           </Col>
         </ColPair>
       </Group>
@@ -403,8 +421,8 @@ export function PoseAdjustToolbar() {
             <Btn label="Turn R" onClick={() => pushPoseOp(torsoNudge(0, -NUDGE.torso))} />
           </Col>
           <Col>
-            <Btn label="Lean L" onClick={() => pushPoseOp(torsoNudge(0, 0, NUDGE.torso))} />
-            <Btn label="Lean R" onClick={() => pushPoseOp(torsoNudge(0, 0, -NUDGE.torso))} />
+            <Btn label="Lean L" onClick={() => pushPoseOp(torsoNudge(0, 0, -NUDGE.torso))} />
+            <Btn label="Lean R" onClick={() => pushPoseOp(torsoNudge(0, 0, NUDGE.torso))} />
           </Col>
           <Col>
             <Btn label="Wider" onClick={() => pushPoseOp(stanceNudge(NUDGE.stance))} />

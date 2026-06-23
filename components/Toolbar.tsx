@@ -1,7 +1,7 @@
 'use client'
 
 import { getAllPosePresets } from '@/lib/posePresets'
-import { useStore, type InteractionMode } from '@/lib/store'
+import { useStore } from '@/lib/store'
 import { useMemo } from 'react'
 
 export function Toolbar() {
@@ -10,7 +10,6 @@ export function Toolbar() {
   const posePresets = useStore((s) => s.posePresets)
   const basePoseId = useStore((s) => s.basePoseId)
   const poseAdjustments = useStore((s) => s.poseAdjustments)
-  const interactionMode = useStore((s) => s.interactionMode)
   const set = useStore((s) => s.set)
   const setBasePoseId = useStore((s) => s.setBasePoseId)
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
@@ -61,40 +60,9 @@ export function Toolbar() {
         </span>
       </label>
 
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-white/60">Interaction</span>
-        <div className="flex gap-1">
-          {(
-            [
-              ['transform', 'Transform'],
-              ['pose', 'Pose edit'],
-            ] as [InteractionMode, string][]
-          ).map(([mode, label]) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() =>
-                set({
-                  interactionMode: mode,
-                  ...(mode === 'transform' ? { selectedBodyPart: null } : {}),
-                })
-              }
-              className={`flex-1 rounded px-2 py-1.5 ${
-                interactionMode === mode
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-white/80 hover:bg-zinc-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-white/50">
-          {interactionMode === 'transform'
-            ? 'Drag to move. Use box arrows to rotate or change depth; drag the corner to resize.'
-            : 'Click body parts on the mannequin to adjust pose.'}
-        </p>
-      </div>
+      <p className="text-xs text-white/50">
+        Drag to move. Use box arrows to rotate or change depth; drag the corner to resize.
+      </p>
     </div>
   )
 }

@@ -15,11 +15,6 @@ const Scene = dynamic(() => import('@/components/Scene').then((m) => m.Scene), {
   ssr: false,
 })
 
-const Controls = dynamic(
-  () => import('@/components/Controls').then((m) => m.Controls),
-  { ssr: false }
-)
-
 export default function Home() {
   const set = useStore((s) => s.set)
   const characterError = useStore((s) => s.characterError)
@@ -138,8 +133,6 @@ export default function Home() {
           <ExportButton />
         </div>
       </aside>
-
-      <Controls />
     </main>
   )
 }

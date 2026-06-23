@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "extract:pose": "node scripts/extract-pose.mjs"
+    "extract:pose": "node scripts/extract-pose.mjs",
+    "extract:poseModels": "node scripts/extract-poseModels.mjs",
+    "build:fbx2glb": "bash scripts/build-fbx2glb.sh",
+    "convert:fbx": "bash scripts/convert-fbx.sh"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
