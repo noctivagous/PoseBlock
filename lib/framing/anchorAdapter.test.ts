@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { VIEW_HEIGHT } from '@/lib/sceneConstants'
+import { VIEW_HEIGHT } from '../../lib/sceneConstants'
 import {
   anchorToBoundsFrame,
   anchorToWorldTransform,
   boundsFrameToAnchor,
   parseAspectRatio,
   worldTransformToAnchor,
-} from '@/lib/framing'
+} from '../../lib/framing'
 
 describe('anchorAdapter round-trip', () => {
   const frame16x9 = { frameWidth: 1920, frameHeight: 1080 }

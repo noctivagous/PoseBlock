@@ -8,9 +8,9 @@ import {
   maxFeetAnchorY,
   parseAspectRatio,
   patchBoundsFrame,
-} from '@/lib/framing'
-import { MAX_INSTANCES } from '@/lib/instances'
-import { useStore } from '@/lib/store'
+} from '../lib/framing'
+import { MAX_INSTANCES } from '../lib/instances'
+import { useStore } from '../lib/store'
 
 function NumField({
   label,

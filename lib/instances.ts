@@ -1,5 +1,5 @@
-import type { PoseOp } from '@/lib/poseCompose'
-import type { PoseBlockInstance } from '@/types'
+import type { PoseOp } from '../lib/poseCompose'
+import type { PoseBlockInstance } from '../types'
 
 /** Max mannequins — matches VideoGen crowd limit. */
 export const MAX_INSTANCES = 10

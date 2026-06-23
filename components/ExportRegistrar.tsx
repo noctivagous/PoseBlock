@@ -7,8 +7,8 @@ import {
   loadImage,
   registerExportHandler,
   unregisterExportHandler,
-} from '@/lib/exportComposite'
-import { useStore } from '@/lib/store'
+} from '../lib/exportComposite'
+import { useStore } from '../lib/store'
 
 export function ExportRegistrar() {
   const gl = useThree((s) => s.gl)

@@ -3,7 +3,7 @@
 import {
   downloadDataURL,
   runCompositeExport,
-} from '@/lib/exportComposite'
+} from '../lib/exportComposite'
 
 export function ExportButton() {
   const handleExport = async () => {

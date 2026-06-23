@@ -4,10 +4,10 @@ import { TransformControls } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { bodyPartById, type BodyPartId } from '@/lib/bodyParts'
-import type { PoseOp } from '@/lib/poseCompose'
-import { findSkeletonBone, updateSkeleton } from '@/lib/poses'
-import { useStore } from '@/lib/store'
+import { bodyPartById, type BodyPartId } from '../lib/bodyParts'
+import type { PoseOp } from '../lib/poseCompose'
+import { findSkeletonBone, updateSkeleton } from '../lib/poses'
+import { useStore } from '../lib/store'
 
 const RAD2DEG = 180 / Math.PI
 const MIN_COMMIT_DEGREES = 0.1

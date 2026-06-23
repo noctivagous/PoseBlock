@@ -1,11 +1,11 @@
 import * as THREE from 'three'
-import referenceBindData from '@/poses/mixamo-reference-bind.json'
+import referenceBindData from '../poses/mixamo-reference-bind.json'
 import {
   canonicalBoneName,
   clearBindPoseCache,
   findSkeletonBone,
   updateSkeleton,
-} from '@/lib/poses'
+} from '../lib/poses'
 
 type BindQuat = [number, number, number, number]
 

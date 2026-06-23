@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { handGesturePose, type HandGesture } from '@/lib/proceduralPoses'
-import { quatFromDegrees, type Pose } from '@/lib/poses'
+import { handGesturePose, type HandGesture } from '../lib/proceduralPoses'
+import { quatFromDegrees, type Pose } from '../lib/poses'
 
 export type BoneAxis = 'x' | 'y' | 'z'
 

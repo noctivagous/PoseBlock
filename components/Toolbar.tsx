@@ -1,7 +1,7 @@
 'use client'
 
-import { getAllPosePresets } from '@/lib/posePresets'
-import { useStore } from '@/lib/store'
+import { getAllPosePresets } from '../lib/posePresets'
+import { useStore } from '../lib/store'
 import { useMemo } from 'react'
 
 export function Toolbar() {

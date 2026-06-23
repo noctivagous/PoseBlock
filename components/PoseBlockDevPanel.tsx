@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useRef } from 'react'
-import { ExportButton } from '@/components/ExportButton'
-import { InstanceMannequinPanel } from '@/components/InstanceMannequinPanel'
-import { PoseAdjustToolbar } from '@/components/PoseAdjustToolbar'
-import { Toolbar } from '@/components/Toolbar'
-import { useStore } from '@/lib/store'
+import { ExportButton } from '../components/ExportButton'
+import { InstanceMannequinPanel } from '../components/InstanceMannequinPanel'
+import { PoseAdjustToolbar } from '../components/PoseAdjustToolbar'
+import { Toolbar } from '../components/Toolbar'
+import { useStore } from '../lib/store'
 
 /** Standalone dev panel — mirrors VideoGen right-panel layout (Phase 3). */
 export function PoseBlockDevPanel() {

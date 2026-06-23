@@ -1,15 +1,15 @@
-import { baseScaleFromDisplay, depthScaleFactor, displayScale } from '@/lib/characterTransform'
+import { baseScaleFromDisplay, depthScaleFactor, displayScale } from '../../lib/characterTransform'
 import {
   MANNEQUIN_BASE_HEIGHT_RATIO,
   TARGET_MODEL_WORLD_HEIGHT,
-} from '@/lib/framing/constants'
+} from '../../lib/framing/constants'
 import {
   clampMannequinAnchor,
   clampMannequinScale,
   maxFeetAnchorY,
   parseAspectRatio,
-} from '@/lib/framing/anchorLayout'
-import { VIEW_HEIGHT } from '@/lib/sceneConstants'
+} from '../../lib/framing/anchorLayout'
+import { VIEW_HEIGHT } from '../../lib/sceneConstants'
 
 export type FeetAnchor = {
   x: number

@@ -1,13 +1,13 @@
 import { create } from 'zustand'
-import type { BodyPartId } from '@/lib/bodyParts'
-import type { CharacterModel } from '@/lib/characterModels'
-import { appendPoseOp, type PoseOp } from '@/lib/poseCompose'
+import type { BodyPartId } from '../lib/bodyParts'
+import type { CharacterModel } from '../lib/characterModels'
+import { appendPoseOp, type PoseOp } from '../lib/poseCompose'
 import {
   createInstance,
   MAX_INSTANCES,
   type CharacterInstance,
-} from '@/lib/instances'
-import type { Pose } from '@/lib/poses'
+} from '../lib/instances'
+import type { Pose } from '../lib/poses'
 
 export type InteractionMode = 'transform' | 'pose'
 

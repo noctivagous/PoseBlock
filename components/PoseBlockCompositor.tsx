@@ -2,12 +2,12 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect } from 'react'
-import { PreviewFrame } from '@/components/PreviewFrame'
-import type { CharacterInstance } from '@/lib/instances'
-import { useStore } from '@/lib/store'
-import type { PoseBlockCompositorProps, PoseBlockInstance } from '@/types'
+import { PreviewFrame } from '../components/PreviewFrame'
+import type { CharacterInstance } from '../lib/instances'
+import { useStore } from '../lib/store'
+import type { PoseBlockCompositorProps, PoseBlockInstance } from '../types'
 
-const Scene = dynamic(() => import('@/components/Scene').then((m) => m.Scene), {
+const Scene = dynamic(() => import('../components/Scene').then((m) => m.Scene), {
   ssr: false,
 })
 

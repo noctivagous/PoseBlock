@@ -1,6 +1,6 @@
 'use client'
 
-import { composePose, summarizePoseOps, type PoseOp } from '@/lib/poseCompose'
+import { composePose, summarizePoseOps, type PoseOp } from '../lib/poseCompose'
 import {
   armNudge,
   foreArmFlex,
@@ -15,10 +15,10 @@ import {
   torsoNudge,
   upperArmTwist,
   wholeRotate,
-} from '@/lib/poseAdjustmentActions'
-import { clampCharacterZ, depthScaleFactor, Z_STEP } from '@/lib/characterTransform'
-import { getAllPosePresets } from '@/lib/posePresets'
-import { useStore } from '@/lib/store'
+} from '../lib/poseAdjustmentActions'
+import { clampCharacterZ, depthScaleFactor, Z_STEP } from '../lib/characterTransform'
+import { getAllPosePresets } from '../lib/posePresets'
+import { useStore } from '../lib/store'
 import { useMemo } from 'react'
 
 const MIN_SCALE = 0.15

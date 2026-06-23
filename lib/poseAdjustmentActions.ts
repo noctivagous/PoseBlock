@@ -1,9 +1,9 @@
 'use client'
 
-import type { BodyPartId } from '@/lib/bodyParts'
-import type { HandGesture } from '@/lib/proceduralPoses'
-import type { BoneAxis, PoseOp } from '@/lib/poseCompose'
-import { useStore } from '@/lib/store'
+import type { BodyPartId } from '../lib/bodyParts'
+import type { HandGesture } from '../lib/proceduralPoses'
+import type { BoneAxis, PoseOp } from '../lib/poseCompose'
+import { useStore } from '../lib/store'
 
 export const NUDGE = {
   head: 5,

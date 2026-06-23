@@ -1,4 +1,4 @@
-import { quatFromDegrees, type Pose } from '@/lib/poses'
+import { quatFromDegrees, type Pose } from '../lib/poses'
 
 export type HandGesture = 'open' | 'fist' | 'point' | 'relaxed'
 

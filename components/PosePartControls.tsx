@@ -4,10 +4,10 @@ import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { bodyPartById, type BodyPartId } from '@/lib/bodyParts'
-import { opsForBodyPart } from '@/lib/poseAdjustmentActions'
-import { findSkeletonBone } from '@/lib/poses'
-import { useStore } from '@/lib/store'
+import { bodyPartById, type BodyPartId } from '../lib/bodyParts'
+import { opsForBodyPart } from '../lib/poseAdjustmentActions'
+import { findSkeletonBone } from '../lib/poses'
+import { useStore } from '../lib/store'
 
 const _worldPos = new THREE.Vector3()
 

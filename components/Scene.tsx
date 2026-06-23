@@ -4,7 +4,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { OrthographicCamera } from '@react-three/drei'
 import { Suspense, useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { VIEW_HEIGHT } from '@/lib/sceneConstants'
+import { VIEW_HEIGHT } from '../lib/sceneConstants'
 import { CharacterManipulatorLayer } from './CharacterManipulator'
 import { ExportRegistrar } from './ExportRegistrar'
 

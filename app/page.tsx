@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback } from 'react'
-import { PoseBlockCompositor } from '@/components/PoseBlockCompositor'
-import { PoseBlockDevPanel } from '@/components/PoseBlockDevPanel'
-import { usePoseBlockBootstrap } from '@/lib/usePoseBlockBootstrap'
-import { useStore } from '@/lib/store'
+import { PoseBlockCompositor } from '../components/PoseBlockCompositor'
+import { PoseBlockDevPanel } from '../components/PoseBlockDevPanel'
+import { usePoseBlockBootstrap } from '../lib/usePoseBlockBootstrap'
+import { useStore } from '../lib/store'
 
 export default function Home() {
   usePoseBlockBootstrap()

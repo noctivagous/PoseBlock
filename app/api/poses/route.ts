@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile } from 'fs/promises'
 import path from 'path'
-import type { Pose } from '@/lib/poses'
+import type { Pose } from '../../../lib/poses'
 
 function isQuaternionTuple(value: unknown): value is [number, number, number, number] {
   return (

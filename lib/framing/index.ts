@@ -5,7 +5,7 @@ export {
   worldTransformToAnchor,
   type FeetAnchor,
   type WorldTransform,
-} from '@/lib/framing/anchorAdapter'
+} from '../../lib/framing/anchorAdapter'
 
 export {
   anchorToBoundsFrame,
@@ -16,7 +16,7 @@ export {
   parseAspectRatio,
   patchBoundsFrame,
   type MannequinBoundsFrame,
-} from '@/lib/framing/anchorLayout'
+} from '../../lib/framing/anchorLayout'
 
 export {
   GLB_FEET_CENTER_X,
@@ -24,4 +24,4 @@ export {
   MANNEQUIN_SCALE_MAX,
   MANNEQUIN_SCALE_MIN,
   TARGET_MODEL_WORLD_HEIGHT,
-} from '@/lib/framing/constants'
+} from '../../lib/framing/constants'

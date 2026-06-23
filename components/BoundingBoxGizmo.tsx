@@ -6,9 +6,9 @@ import * as THREE from 'three'
 import {
   clampCharacterZ,
   Z_STEP,
-} from '@/lib/characterTransform'
-import { clampMannequinScale } from '@/lib/framing'
-import { useStore } from '@/lib/store'
+} from '../lib/characterTransform'
+import { clampMannequinScale } from '../lib/framing'
+import { useStore } from '../lib/store'
 
 const ROT_STEP = 15
 const PITCH_STEP = 12

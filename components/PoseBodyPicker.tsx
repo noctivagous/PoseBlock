@@ -4,16 +4,16 @@ import type { ThreeEvent } from '@react-three/fiber'
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
-import { BODY_PARTS, type BodyPartId } from '@/lib/bodyParts'
+import { BODY_PARTS, type BodyPartId } from '../lib/bodyParts'
 import {
   armNudge,
   headRotate,
   stanceNudge,
   torsoNudge,
   wholeRotate,
-} from '@/lib/poseAdjustmentActions'
-import { findSkeletonBone } from '@/lib/poses'
-import { useStore } from '@/lib/store'
+} from '../lib/poseAdjustmentActions'
+import { findSkeletonBone } from '../lib/poses'
+import { useStore } from '../lib/store'
 
 const _worldPos = new THREE.Vector3()
 const DRAG_TO_DEGREES = 0.25

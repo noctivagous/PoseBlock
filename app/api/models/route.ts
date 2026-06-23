@@ -6,7 +6,7 @@ import {
   modelLabelFromRelativePath,
   modelUrlFromFilename,
   type CharacterModel,
-} from '@/lib/characterModels'
+} from '../../../lib/characterModels'
 
 async function collectModelFiles(dir: string, baseDir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })

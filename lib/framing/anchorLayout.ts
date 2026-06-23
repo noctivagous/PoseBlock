@@ -9,7 +9,7 @@ import {
   MANNEQUIN_SCALE_MAX,
   MANNEQUIN_SCALE_MIN,
   REFERENCE_PLACEMENT_X,
-} from '@/lib/framing/constants'
+} from '../../lib/framing/constants'
 
 export interface ClampMannequinAnchorOptions {
   maxY?: number

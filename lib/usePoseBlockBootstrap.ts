@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import type { CharacterModel } from '@/lib/characterModels'
-import { getAllPosePresets } from '@/lib/posePresets'
-import type { Pose } from '@/lib/poses'
-import { useStore } from '@/lib/store'
+import type { CharacterModel } from '../lib/characterModels'
+import { getAllPosePresets } from '../lib/posePresets'
+import type { Pose } from '../lib/poses'
+import { useStore } from '../lib/store'
 
 /** Load character models and pose presets from standalone API routes. */
 export function usePoseBlockBootstrap() {

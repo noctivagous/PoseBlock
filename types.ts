@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { PoseOp } from '@/lib/poseCompose'
+import type { PoseOp } from './lib/poseCompose'
 
 /** Single mannequin instance — VideoGen adapter uses feet-anchor x/y/scale. */
 export type PoseBlockInstance = {
