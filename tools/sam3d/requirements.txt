@@ -1,10 +1,12 @@
 # SAM 3D Body mannequin generation pipeline
 #
-# Install this repo first (requires HuggingFace gated access to facebook/sam-3d-body-vith):
-#   git clone https://github.com/facebookresearch/sam-3d-body
-#   cd sam-3d-body && pip install -e .
+# Inference weights are loaded from Hugging Face Hub (facebook/sam-3d-body-vith).
+# You need gated access + hf auth login. Weights cache under ~/.cache/huggingface.
 #
-# Then install the requirements below.
+# Python inference code (not weights) comes from a local clone of sam-3d-body:
+#   git clone https://github.com/facebookresearch/sam-3d-body
+#   export SAM3D_BODY_ROOT=/path/to/sam-3d-body
+#   pip install -r tools/sam3d/requirements-sam3d-body-minimal.txt
 
 # Core inference
 torch>=2.1.0

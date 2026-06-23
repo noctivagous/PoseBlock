@@ -23,8 +23,12 @@ const q = quatFromDegrees
 
 const bindPoseBySkeleton = new WeakMap<THREE.Skeleton, Map<string, THREE.Quaternion>>()
 
-function canonicalBoneName(name: string): string {
+export function canonicalBoneName(name: string): string {
   return name.replace(/^mixamorig[:_]?/i, '')
+}
+
+export function clearBindPoseCache(skeleton: THREE.Skeleton): void {
+  bindPoseBySkeleton.delete(skeleton)
 }
 
 function getBindPose(skeleton: THREE.Skeleton): Map<string, THREE.Quaternion> {

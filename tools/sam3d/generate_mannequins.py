@@ -6,6 +6,8 @@ For each of the six mannequin variants (female/adult, female/child, female/teen,
 male/adult, male/child, male/teen), this script:
 
   1. Runs SAM 3D Body (facebook/sam-3d-body-vith) on the front-view PNG.
+     Model weights are loaded from Hugging Face Hub on first run (cached under
+     ~/.cache/huggingface). No local checkpoint download is required.
   2. Saves the raw PLY mesh and MHR70 keypoints JSON to tools/sam3d/output/.
   3. Invokes Blender in headless mode to build a Mixamo armature from the
      keypoints, bind the mesh with automatic weights, and export an FBX.
@@ -59,19 +61,102 @@ VARIANTS = [
 # Front-facing images give the best body pose estimates.
 PRIMARY_VIEW = "front.png"
 
+LIGHT_BLUE = (0.65098039, 0.74117647, 0.85882353)
+
+
+def _save_qc_overlay(img_bgr, person_output, faces, dest: Path) -> None:
+    """Mesh overlay QC image without importing detectron2-dependent vis utils."""
+    import cv2
+    import numpy as np
+    from sam_3d_body.visualization.renderer import Renderer
+
+    renderer = Renderer(focal_length=person_output["focal_length"], faces=faces)
+    rend = renderer(
+        person_output["pred_vertices"],
+        person_output["pred_cam_t"],
+        img_bgr.copy(),
+        mesh_base_color=LIGHT_BLUE,
+        scene_bg_color=(1, 1, 1),
+    )
+    cv2.imwrite(str(dest), (rend * 255).astype(np.uint8))
+
 # ---------------------------------------------------------------------------
 # Step 1 — SAM 3D Body inference
 # ---------------------------------------------------------------------------
 
-def setup_estimator(hf_repo_id: str, device: Optional[str] = None):
-    """Load SAM 3D Body model from HuggingFace."""
+def _resolve_device(device: Optional[str] = None) -> str:
     import torch
-    from notebook.utils import setup_sam_3d_body
 
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Loading SAM 3D Body from {hf_repo_id!r} (device={device})...")
-    return setup_sam_3d_body(hf_repo_id=hf_repo_id, device=device)
+    if device is not None:
+        return device
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def _verify_hf_hub_access(repo_id: str) -> None:
+    """Confirm gated-model access before downloading weights from the Hub."""
+    from huggingface_hub import HfApi
+    from huggingface_hub.utils import GatedRepoError, HfHubHTTPError
+
+    api = HfApi()
+    try:
+        api.model_info(repo_id)
+    except GatedRepoError:
+        print(
+            f"[ERROR] Gated model {repo_id!r}: request access on Hugging Face, "
+            f"then run: hf auth login"
+        )
+        sys.exit(1)
+    except HfHubHTTPError as exc:
+        print(f"[ERROR] Could not reach Hugging Face Hub for {repo_id!r}: {exc}")
+        sys.exit(1)
+
+
+def setup_estimator(hf_repo_id: str, device: Optional[str] = None):
+    """
+    Load SAM 3D Body from Hugging Face Hub (not local checkpoints).
+
+    Weights are fetched via huggingface_hub.snapshot_download and cached in the
+  standard HF cache (~/.cache/huggingface). Requires the sam-3d-body Python
+    package on PYTHONPATH (see SAM3D_BODY_ROOT / tools/sam3d/README.md).
+    """
+    _ensure_sam3d_body_on_path()
+    _verify_hf_hub_access(hf_repo_id)
+
+    from sam_3d_body import load_sam_3d_body_hf, SAM3DBodyEstimator
+
+    device = _resolve_device(device)
+    print(
+        f"Loading SAM 3D Body from Hugging Face Hub: {hf_repo_id!r} "
+        f"(device={device})"
+    )
+    print("  Weights download on first run; cached by huggingface_hub afterward.")
+
+    # HuggingFace Hub → model.ckpt + assets/mhr_model.pt (see build_models.py)
+    model, model_cfg = load_sam_3d_body_hf(hf_repo_id, device=device)
+
+    # Full-frame mannequin PNGs — no ViTDet / MoGe / SAM2 optional modules.
+    return SAM3DBodyEstimator(
+        sam_3d_body_model=model,
+        model_cfg=model_cfg,
+        human_detector=None,
+        human_segmentor=None,
+        fov_estimator=None,
+    )
+
+
+def _ensure_sam3d_body_on_path() -> None:
+    """Add facebook/sam-3d-body clone to sys.path (see tools/sam3d/env.sh)."""
+    root = os.environ.get("SAM3D_BODY_ROOT")
+    if not root:
+        default = Path.home() / "Developer" / "sam-3d-body"
+        if default.is_dir():
+            root = str(default)
+    if root and root not in sys.path:
+        sys.path.insert(0, root)
 
 
 def run_inference(
@@ -145,12 +230,8 @@ def run_inference(
     with open(out_dir / "mhr_params.json", "w") as f:
         json.dump(params, f, indent=2)
 
-    # --- Save overlay visualization for visual QC ---
-    from notebook.utils import visualize_sample_together
-    rend_img = visualize_sample_together(img_bgr, outputs, estimator.faces)
-    import cv2 as _cv2
-    import numpy as _np
-    _cv2.imwrite(str(out_dir / "qc_overlay.jpg"), rend_img.astype(_np.uint8))
+    # --- Save overlay visualization for visual QC (Renderer only — no detectron2) ---
+    _save_qc_overlay(img_bgr, person, estimator.faces, out_dir / "qc_overlay.jpg")
 
     print(f"  Saved PLY, keypoints, params, QC overlay → {out_dir.relative_to(REPO_ROOT)}/")
     return ply_path, kpts_path

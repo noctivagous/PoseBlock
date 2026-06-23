@@ -1,10 +1,12 @@
 'use client'
 
-import { useGLTF } from '@react-three/drei'
+import { useFBX, useGLTF } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import { Component, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { SkeletonUtils } from 'three-stdlib'
 import * as THREE from 'three'
+import { isFbxModelUrl } from '@/lib/characterModels'
+import { alignSkeletonToMixamoBind } from '@/lib/mixamoBind'
 import { composePose } from '@/lib/poseCompose'
 import { displayScale, baseScaleFromDisplay } from '@/lib/characterTransform'
 import { getAllPosePresets } from '@/lib/posePresets'
@@ -22,7 +24,13 @@ type CharacterModelProps = {
   groupRef: React.RefObject<THREE.Group | null>
 }
 
-function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
+type CharacterModelContentProps = {
+  source: THREE.Object3D
+  groupRef: React.RefObject<THREE.Group | null>
+  alignMixamoBind: boolean
+}
+
+function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterModelContentProps) {
   const basePoseId = useStore((s) => s.basePoseId)
   const poseAdjustments = useStore((s) => s.poseAdjustments)
   const posePresets = useStore((s) => s.posePresets)
@@ -34,7 +42,6 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
   const characterScale = useStore((s) => s.characterScale)
   const interactionMode = useStore((s) => s.interactionMode)
   const set = useStore((s) => s.set)
-  const { scene } = useGLTF(modelUrl)
   const skeletonRef = useRef<THREE.Skeleton | null>(null)
   const [skeleton, setSkeleton] = useState<THREE.Skeleton | null>(null)
   const isDragging = useRef(false)
@@ -42,7 +49,7 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
   const dragOffset = useRef(new THREE.Vector3())
   const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), [])
 
-  const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene])
+  const clonedScene = useMemo(() => SkeletonUtils.clone(source), [source])
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
   const composedPose = useMemo(() => {
     const base = availablePoses[basePoseId]
@@ -80,9 +87,14 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
       return
     }
 
+    const aligned = alignMixamoBind ? alignSkeletonToMixamoBind(found) : 0
+    if (alignMixamoBind && aligned === 0 && process.env.NODE_ENV === 'development') {
+      console.warn('[mixamoBind] No bones aligned to Mixamo reference bind')
+    }
+
     skeletonRef.current = found
     setSkeleton(found)
-  }, [clonedScene, set])
+  }, [alignMixamoBind, clonedScene, set])
 
   useEffect(() => {
     if (!skeletonRef.current || !composedPose) return
@@ -197,6 +209,23 @@ function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
   )
 }
 
+function GlbCharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
+  const { scene } = useGLTF(modelUrl)
+  return <CharacterModelContent source={scene} groupRef={groupRef} alignMixamoBind={false} />
+}
+
+function FbxCharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
+  const fbx = useFBX(modelUrl)
+  return <CharacterModelContent source={fbx} groupRef={groupRef} alignMixamoBind={true} />
+}
+
+function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
+  if (isFbxModelUrl(modelUrl)) {
+    return <FbxCharacterModel modelUrl={modelUrl} groupRef={groupRef} />
+  }
+  return <GlbCharacterModel modelUrl={modelUrl} groupRef={groupRef} />
+}
+
 type ErrorBoundaryProps = {
   children: ReactNode
   onError: (message: string) => void
@@ -231,7 +260,11 @@ function CharacterPreloader() {
 
   useEffect(() => {
     for (const model of characterModels) {
-      useGLTF.preload(model.url)
+      if (isFbxModelUrl(model.url)) {
+        useFBX.preload(model.url)
+      } else {
+        useGLTF.preload(model.url)
+      }
     }
   }, [characterModels])
 

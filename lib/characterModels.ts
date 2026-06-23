@@ -4,13 +4,29 @@ export type CharacterModel = {
   url: string
 }
 
-export function modelUrlFromFilename(filename: string): string {
-  return `/models/${encodeURIComponent(filename)}`
+const MODEL_EXT_PATTERN = /\.(glb|fbx)$/i
+
+export function isFbxModelUrl(url: string): boolean {
+  return url.toLowerCase().endsWith('.fbx')
 }
 
-export function modelIdFromFilename(filename: string): string {
-  return filename
-    .replace(/\.glb$/i, '')
+export function isModelFilename(filename: string): boolean {
+  return MODEL_EXT_PATTERN.test(filename)
+}
+
+export function modelUrlFromFilename(relativePath: string): string {
+  const segments = relativePath.split(/[/\\]/).map((segment) => encodeURIComponent(segment))
+  return `/models/${segments.join('/')}`
+}
+
+export function modelLabelFromRelativePath(relativePath: string): string {
+  return relativePath.replace(MODEL_EXT_PATTERN, '')
+}
+
+export function modelIdFromFilename(relativePath: string): string {
+  return relativePath
+    .replace(MODEL_EXT_PATTERN, '')
     .toLowerCase()
+    .replace(/[/\\]+/g, '-')
     .replace(/\s+/g, '-')
 }

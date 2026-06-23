@@ -41,34 +41,46 @@ public/models/mannequins/<gender>/<age>/mannequin.glb
 
 ## Prerequisites
 
-### 1. HuggingFace access
+### 1. Hugging Face Hub (model weights)
 
-SAM 3D Body is gated. Request access at:
+Inference loads **model weights from Hugging Face Hub**, not from files in this
+repo. On first run, `load_sam_3d_body_hf()` downloads `model.ckpt` and
+`assets/mhr_model.pt` from the Hub and caches them (typically under
+`~/.cache/huggingface`). You do **not** need `hf download` into
+`tools/sam3d/checkpoints/`.
+
+Request gated access at:
 <https://huggingface.co/facebook/sam-3d-body-vith>
 
-Log in once with the HF CLI:
+Then authenticate once:
 
 ```bash
 hf auth login
 ```
 
-### 2. Clone and install SAM 3D Body
+### 2. SAM 3D Body Python package (inference code, not weights)
+
+The Hub provides weights only. You still need the **sam-3d-body source** on
+`PYTHONPATH` for the estimator and renderer:
 
 ```bash
 git clone https://github.com/facebookresearch/sam-3d-body
-cd sam-3d-body
-pip install -e .
-cd ..
+export SAM3D_BODY_ROOT="$HOME/Developer/sam-3d-body"   # adjust path
+python tools/sam3d/patch_sam3d_body.py "$SAM3D_BODY_ROOT"   # Mac MPS/CPU fix
 ```
 
-Follow any additional steps in `sam-3d-body/INSTALL.md` (e.g., installing
-optional ViTDet detector and SAM2 segmentor for best results).
+On Mac, patch the hardcoded `cuda` line before first inference (see
+`patch_sam3d_body.py`).
 
-### 3. Install Python requirements
+### 3. Install Python dependencies
 
 ```bash
 pip install -r tools/sam3d/requirements.txt
+pip install -r tools/sam3d/requirements-sam3d-body-minimal.txt
 ```
+
+Optional heavy modules (ViTDet, MoGe, SAM2) are **not** required — mannequin
+images use the full frame with no detector.
 
 ### 4. Blender 3.x or 4.x
 
@@ -128,11 +140,13 @@ python tools/sam3d/generate_mannequins.py --skip-inference --skip-blender
 python tools/sam3d/generate_mannequins.py --no-deploy
 ```
 
-### Use a custom HuggingFace model variant
+### Use a different Hugging Face model repo
 
 ```bash
 python tools/sam3d/generate_mannequins.py --hf-repo facebook/sam-3d-body-dinov3
 ```
+
+Both repos load weights from the Hub automatically (no local checkpoint path).
 
 ---
 
@@ -184,8 +198,12 @@ existing pose system.
 **"No person detected"** — the mannequin silhouette may be too faint. Try the
 `--use_mask` option by editing `run_inference()` in `generate_mannequins.py`.
 
-**Blender crash / ImportError for mhr_to_mixamo** — ensure `tools/sam3d` is in
-Python's path. The Blender script inserts it automatically via `sys.path`.
+**Gated model / 403** — confirm access on the model page and `hf auth login`
+with the same account. Weights must load from the Hub; there is no
+`--checkpoint-path` fallback.
+
+**ModuleNotFoundError: sam_3d_body** — set `SAM3D_BODY_ROOT` to your
+sam-3d-body clone (see Prerequisites).
 
 **fbx2glb "unsupported FBX version"** — use Blender 3.6 LTS; its FBX exporter
 outputs FBX 7.4 which fbx2glb supports.

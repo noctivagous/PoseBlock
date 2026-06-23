@@ -1,6 +1,5 @@
 import { readdir, readFile, writeFile } from 'fs/promises'
 import path from 'path'
-import { getProceduralPoses } from '@/lib/proceduralPoses'
 import type { Pose } from '@/lib/poses'
 
 function isQuaternionTuple(value: unknown): value is [number, number, number, number] {
@@ -66,10 +65,7 @@ async function loadFilePresets(posesDir: string): Promise<Record<string, Pose>> 
 
 export async function GET() {
   const posesDir = path.join(process.cwd(), 'poses')
-  const presets: Record<string, Pose> = {
-    ...getProceduralPoses(),
-    ...(await loadFilePresets(posesDir)),
-  }
+  const presets: Record<string, Pose> = await loadFilePresets(posesDir)
 
   return Response.json(presets)
 }
