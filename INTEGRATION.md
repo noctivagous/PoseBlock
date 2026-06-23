@@ -337,13 +337,13 @@ These must work in standalone PoseBlock before VideoGen embed.
 
 ### Phase 4 — VideoGen compositor embed
 
-- [ ] **4.1** Embed `PoseBlockCompositor` in `PreviewPanel` for blocking workflows
-- [ ] **4.2** Implement `lib/poseblock/adapter.ts` — store ↔ PoseBlock props
-- [ ] **4.3** Subscribe compositor to `shot.mannequins` and `project.aspectRatio`
-- [ ] **4.4** Keep character-assignment connector anchors on selected principal mannequins
+- [x] **4.1** Embed `PoseBlockCompositor` in `PreviewPanel` for blocking workflows
+- [x] **4.2** Implement `lib/poseblock/adapter.ts` — store ↔ PoseBlock props
+- [x] **4.3** Subscribe compositor to `shot.mannequins` and `project.aspectRatio`
+- [x] **4.4** Keep character-assignment connector anchors on selected principal mannequins
 - [ ] **4.5** Preserve click-to-place from composition grid (left panel) — maps to new instance at clicked anchor
-- [ ] **4.6** Integrate `syncMannequinsFromShot` — layout changes re-project instances through adapter
-- [ ] **4.7** Feature flag or workflow gate to fall back to PNG layer during rollout (`POSEBLOCK_COMPOSITOR=1`)
+- [x] **4.6** Integrate `syncMannequinsFromShot` — layout changes re-project instances through adapter (automatic: adapter reads `shot.mannequins` every render)
+- [x] **4.7** Feature flag `NEXT_PUBLIC_POSEBLOCK_COMPOSITOR=1` falls back to PNG layer during rollout
 
 ### Phase 5 — PNG migration and bake parity
 
