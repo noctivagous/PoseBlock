@@ -1,9 +1,10 @@
+Integration plan: [`INTEGRATION.md`](INTEGRATION.md)
 
 DUAL CONDITION
-- PoseBlock will be a git submodule
-of a project called Videogen.
+- PoseBlock needs to be a git submodule
+of Videogen.
 
-- Plane for refactoring the PoseBlock code base 
+- Plan for refactoring the PoseBlock code base 
 to be a module of VideoGen
 that is automatically loaded by VideoGen
 but is also an app that is self-contained
@@ -15,10 +16,12 @@ to be migrated to PoseBlock.
 be worked on in the future, but now
 is the time to migrate it into Videogen
 so that it can be worked on separately
-for Videogen
+for Videogen concurrently.
 -- PoseBlock will also standalone in
-its own git repo so that it can be
-used separately.
+its own git repo.  It should be
+launchable with npm run dev so
+that it can be worked out outside
+of dependency on Videogen.
 
 FEATURES THAT ARE NOT YET IN
 POSEBLOCK BUT HAVE TO BE FOR IT
@@ -30,6 +33,7 @@ TO BE USED IN VIDEOGEN
     one at a time or shift+click
     for selecting more than
     one.
+
 [ ] - Positioning the scale
 and translation of the model
 with the convention provided by
@@ -50,15 +54,15 @@ saves the pose to the database.
 and then require conversion from
 OpenPose to Mixamo.
 
-
-2 -- [ ] - Make SAM 3D Body script for
-converting images to rigged
-3D models, converting the .FBX to .GLB (included), converting the MHR
-rigging to Mixamo for our project.
-
-3  -- [ ] - automatic vanishing point 
+2  -- [ ] - automatic vanishing point 
 and plane detection, lightweight,
 using techniques such as J-Linkage,
 1D Hough (ICIS), Row-Space Clustering.
+
+
+3 -- [X] - Make SAM 3D Body script for
+converting images to rigged
+3D models, converting the .FBX to .GLB (included), converting the MHR
+rigging to Mixamo for our project.
 
 

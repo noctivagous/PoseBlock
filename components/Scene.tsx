@@ -4,10 +4,13 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { OrthographicCamera } from '@react-three/drei'
 import { Suspense, useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
+import { VIEW_HEIGHT } from '@/lib/sceneConstants'
 import { CharacterManipulator } from './CharacterManipulator'
 import { ExportRegistrar } from './ExportRegistrar'
 
-const VIEW_HEIGHT = 4
+type SceneProps = {
+  enableExport?: boolean
+}
 
 function FrameCamera() {
   const camRef = useRef<THREE.OrthographicCamera>(null)
@@ -34,7 +37,7 @@ function FrameCamera() {
   )
 }
 
-export function Scene() {
+export function Scene({ enableExport = true }: SceneProps) {
   return (
     <Canvas
       className="h-full w-full"
@@ -48,7 +51,7 @@ export function Scene() {
       <Suspense fallback={null}>
         <CharacterManipulator />
       </Suspense>
-      <ExportRegistrar />
+      {enableExport && <ExportRegistrar />}
     </Canvas>
   )
 }

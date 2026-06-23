@@ -2,6 +2,29 @@
   "name": "poseblock",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    },
+    "./compositor": {
+      "types": "./components/PoseBlockCompositor.tsx",
+      "default": "./components/PoseBlockCompositor.tsx"
+    },
+    "./export": {
+      "types": "./lib/exportComposite.ts",
+      "default": "./lib/exportComposite.ts"
+    },
+    "./framing": {
+      "types": "./lib/framing/index.ts",
+      "default": "./lib/framing/index.ts"
+    },
+    "./types": {
+      "types": "./types.ts",
+      "default": "./types.ts"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,10 +36,16 @@
     "build:fbx2glb": "bash scripts/build-fbx2glb.sh",
     "convert:fbx": "bash scripts/convert-fbx.sh"
   },
+  "peerDependencies": {
+    "@react-three/drei": "^10.7.0",
+    "@react-three/fiber": "^9.6.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.175.0"
+  },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
-    "leva": "^0.10.1",
     "next": "^16.2.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

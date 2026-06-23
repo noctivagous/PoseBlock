@@ -4,14 +4,29 @@ import { useStore } from '@/lib/store'
 
 type PreviewFrameProps = {
   children: React.ReactNode
+  /** When set, overrides store backdrop (embed mode). */
+  backdropUrl?: string
+  className?: string
+  onFrameLoad?: (width: number, height: number) => void
 }
 
-export function PreviewFrame({ children }: PreviewFrameProps) {
-  const backdropUrl = useStore((s) => s.backdropUrl)
+export function PreviewFrame({
+  children,
+  backdropUrl: backdropUrlProp,
+  className,
+  onFrameLoad,
+}: PreviewFrameProps) {
+  const storeBackdropUrl = useStore((s) => s.backdropUrl)
   const set = useStore((s) => s.set)
+  const backdropUrl = backdropUrlProp ?? storeBackdropUrl
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-zinc-950 p-3">
+    <div
+      className={
+        className ??
+        'flex h-full w-full items-center justify-center bg-zinc-950 p-3'
+      }
+    >
       <div className="relative aspect-video w-full max-h-full overflow-hidden rounded-sm shadow-2xl ring-1 ring-white/15">
         <img
           src={backdropUrl}
@@ -24,6 +39,7 @@ export function PreviewFrame({ children }: PreviewFrameProps) {
               frameWidth: img.naturalWidth,
               frameHeight: img.naturalHeight,
             })
+            onFrameLoad?.(img.naturalWidth, img.naturalHeight)
           }}
         />
         <div className="absolute inset-0">{children}</div>

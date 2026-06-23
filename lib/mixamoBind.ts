@@ -9,7 +9,7 @@ import {
 
 type BindQuat = [number, number, number, number]
 
-const REFERENCE_BIND = referenceBindData.bind as Record<string, BindQuat>
+const REFERENCE_BIND = referenceBindData.bind as unknown as Record<string, BindQuat>
 
 /**
  * Mixamo FBX loads with identity local bone rotations (T-pose bind), while GLB

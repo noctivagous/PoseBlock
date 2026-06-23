@@ -242,9 +242,44 @@ Upload a frame via **Upload frame** or Leva. Drag to position. **Export for inpa
 
 ---
 
-## Videogen Integration (Future)
+## Videogen Integration
 
-Copy `PreviewFrame`, `Scene`, `Character`, `Controls` (or replace Leva with existing UI). Keep Zustand state shape. Swap `ExportButton` download for `generateVideo({ image_1: dataURL })`.
+PoseBlock is a **git submodule** of VideoGen and an npm package (`poseblock`). Full plan: [`INTEGRATION.md`](INTEGRATION.md).
+
+### Standalone development
+
+```bash
+cd PoseBlock
+npm install
+npm run dev        # http://localhost:3000
+```
+
+No VideoGen dependency required. The standalone app uses `PoseBlockCompositor` (center preview) and `PoseBlockDevPanel` (right sidebar — same layout VideoGen will use for mannequin controls).
+
+### Package exports
+
+```typescript
+import { PoseBlockCompositor } from 'poseblock'
+import { compositeToDataURL, runCompositeExport } from 'poseblock/export'
+import type { PoseBlockInstance } from 'poseblock/types'
+```
+
+VideoGen lists `"poseblock": "file:./PoseBlock"` and transpiles the package via `next.config.ts`.
+
+### Clone VideoGen with PoseBlock
+
+```bash
+git clone --recurse-submodules https://github.com/noctivagous/videogen.git
+cd videogen
+npm install
+```
+
+If you already cloned without submodules:
+
+```bash
+git submodule update --init --recursive
+npm install
+```
 
 ---
 

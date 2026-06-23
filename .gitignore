@@ -1,0 +1,55 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# generated assets
+/assets/raw/
+/poses/pose-models/
+
+# native FBX converter (built per machine)
+/tools/fbx2.1glb/build/
+/tools/bin/
+
+# sam3d — track scripts only; ignore large binaries, weights, and reference images
+/tools/sam3d/output/
+/tools/sam3d/checkpoints/
+/tools/sam3d/model-images/
+/tools/sam3d/.venv/
+# explicitly keep scripts and config
+!/tools/sam3d/*.py
+!/tools/sam3d/*.txt
+!/tools/sam3d/*.md
+
+/public/unused-models
