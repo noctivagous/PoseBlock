@@ -7,6 +7,8 @@ type PreviewFrameProps = {
   /** When set, overrides store backdrop (embed mode). */
   backdropUrl?: string
   className?: string
+  /** Host app provides backdrop; render transparent canvas only. */
+  embedMode?: boolean
   onFrameLoad?: (width: number, height: number) => void
 }
 
@@ -14,11 +16,20 @@ export function PreviewFrame({
   children,
   backdropUrl: backdropUrlProp,
   className,
+  embedMode = false,
   onFrameLoad,
 }: PreviewFrameProps) {
   const storeBackdropUrl = useStore((s) => s.backdropUrl)
   const set = useStore((s) => s.set)
   const backdropUrl = backdropUrlProp ?? storeBackdropUrl
+
+  if (embedMode) {
+    return (
+      <div className={className ?? 'relative h-full w-full'}>
+        <div className="absolute inset-0">{children}</div>
+      </div>
+    )
+  }
 
   return (
     <div

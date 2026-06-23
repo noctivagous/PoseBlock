@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { PreviewFrame } from '../components/PreviewFrame'
 import type { CharacterInstance } from '../lib/instances'
 import { useStore } from '../lib/store'
@@ -22,7 +22,7 @@ function toStoreInstance(ext: PoseBlockInstance): CharacterInstance {
     x: ext.x,
     y: ext.y,
     scale: ext.scale,
-    rotation: ext.rotation,
+    rotation: ext.characterRotationY ?? ext.rotation,
     characterZ: ext.characterZ ?? 0,
     characterRotationX: ext.characterRotationX ?? 0,
     characterRotationY: ext.characterRotationY ?? ext.rotation,
@@ -39,9 +39,12 @@ export function PoseBlockCompositor({
   onSelect: _onSelect,
   onInstanceChange: _onInstanceChange,
   enableExport = true,
+  embedMode = false,
   children,
 }: PoseBlockCompositorProps) {
   const set = useStore((s) => s.set)
+  const hasSyncedInstancesRef = useRef(false)
+  const hasSyncedSelectionRef = useRef(false)
 
   useEffect(() => {
     if (backdropUrl !== undefined) {
@@ -57,18 +60,22 @@ export function PoseBlockCompositor({
 
   useEffect(() => {
     if (instances === undefined) return
-    set({ instances: instances.map(toStoreInstance) })
-  }, [instances, set])
+    const mapped = instances.map(toStoreInstance)
+    if (mapped.length > 0) hasSyncedInstancesRef.current = true
+    if (mapped.length === 0 && !hasSyncedInstancesRef.current) return
+    set({ instances: mapped })
+  }, [instances, set, selectedIds])
 
   useEffect(() => {
-    if (selectedIds !== undefined) {
-      set({ selectedIds })
-    }
+    if (selectedIds === undefined) return
+    if (selectedIds.length > 0) hasSyncedSelectionRef.current = true
+    if (selectedIds.length === 0 && !hasSyncedSelectionRef.current) return
+    set({ selectedIds })
   }, [selectedIds, set])
 
   return (
     <div className={className ?? 'relative h-full min-h-0 w-full'}>
-      <PreviewFrame backdropUrl={backdropUrl}>
+      <PreviewFrame backdropUrl={backdropUrl} embedMode={embedMode}>
         <Scene enableExport={enableExport} />
       </PreviewFrame>
       {children}

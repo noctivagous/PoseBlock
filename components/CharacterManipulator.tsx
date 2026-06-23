@@ -286,10 +286,18 @@ function CharacterModel(props: CharacterModelProps) {
 type ErrorBoundaryProps = {
   children: ReactNode
   onError: (message: string) => void
+  modelUrl: string
 }
 
-class ModelErrorBoundary extends Component<ErrorBoundaryProps, { hasError: boolean }> {
-  state = { hasError: false }
+class ModelErrorBoundary extends Component<ErrorBoundaryProps, { hasError: boolean; lastModelUrl: string }> {
+  state = { hasError: false, lastModelUrl: '' }
+
+  static getDerivedStateFromProps(props: ErrorBoundaryProps, state: { hasError: boolean; lastModelUrl: string }) {
+    if (props.modelUrl !== state.lastModelUrl) {
+      return { hasError: false, lastModelUrl: props.modelUrl }
+    }
+    return null
+  }
 
   static getDerivedStateFromError() {
     return { hasError: true }
@@ -339,6 +347,7 @@ export function CharacterManipulator({
   return (
     <ModelErrorBoundary
       key={instance.modelUrl + instanceId}
+      modelUrl={instance.modelUrl}
       onError={(msg) => set({ characterError: msg })}
     >
       <CharacterModel

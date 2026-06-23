@@ -157,13 +157,24 @@ export function PoseAdjustToolbar() {
   const updateInstance = useStore((s) => s.updateInstance)
   const set = useStore((s) => s.set)
 
+  const basePoseId = primary?.basePoseId ?? ''
+  const poseAdjustments = primary?.poseAdjustments ?? []
+
+  const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
+  const composedPose = useMemo(() => {
+    if (!primary) return null
+    const base = availablePoses[basePoseId]
+    if (!base) return null
+    return composePose(base, poseAdjustments)
+  }, [primary, availablePoses, basePoseId, poseAdjustments])
+
+  const summary = useMemo(() => summarizePoseOps(poseAdjustments), [poseAdjustments])
+
   if (!primary) {
     return null
   }
 
   const {
-    basePoseId,
-    poseAdjustments,
     poseAdjustmentPast,
     poseAdjustmentFuture,
     scale: characterScale,
@@ -188,15 +199,6 @@ export function PoseAdjustToolbar() {
     const centerShift = halfH * (newFactor / oldFactor - 1)
     updateInstance(primary.id, { characterZ: newZ, y: anchorY + centerShift })
   }
-
-  const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
-  const composedPose = useMemo(() => {
-    const base = availablePoses[basePoseId]
-    if (!base) return null
-    return composePose(base, poseAdjustments)
-  }, [availablePoses, basePoseId, poseAdjustments])
-
-  const summary = useMemo(() => summarizePoseOps(poseAdjustments), [poseAdjustments])
 
   const savePose = async () => {
     if (!composedPose) return

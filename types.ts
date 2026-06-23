@@ -29,5 +29,7 @@ export type PoseBlockCompositorProps = {
   onSelect?: (ids: string[]) => void
   onInstanceChange?: (id: string, patch: Partial<PoseBlockInstance>) => void
   enableExport?: boolean
+  /** When true, canvas fills the parent and backdrop/dimension handling is left to the host app. */
+  embedMode?: boolean
   children?: ReactNode
 }
