@@ -3,24 +3,39 @@
 import dynamic from 'next/dynamic'
 import { useEffect } from 'react'
 import { PreviewFrame } from '@/components/PreviewFrame'
+import type { CharacterInstance } from '@/lib/instances'
 import { useStore } from '@/lib/store'
-import type { PoseBlockCompositorProps } from '@/types'
+import type { PoseBlockCompositorProps, PoseBlockInstance } from '@/types'
 
 const Scene = dynamic(() => import('@/components/Scene').then((m) => m.Scene), {
   ssr: false,
 })
 
-/**
- * Embeddable pose-blocking compositor: 2D backdrop + transparent WebGL mannequin overlay.
- * Standalone app uses internal Zustand store; VideoGen passes controlled props (Phase 4).
- */
+function toStoreInstance(ext: PoseBlockInstance): CharacterInstance {
+  return {
+    id: ext.id,
+    modelUrl: ext.modelUrl,
+    basePoseId: ext.basePoseId,
+    poseAdjustments: ext.poseAdjustments ?? [],
+    poseAdjustmentPast: [],
+    poseAdjustmentFuture: [],
+    x: ext.x,
+    y: ext.y,
+    scale: ext.scale,
+    rotation: ext.rotation,
+    characterZ: ext.characterZ ?? 0,
+    characterRotationX: ext.characterRotationX ?? 0,
+    characterRotationY: ext.characterRotationY ?? ext.rotation,
+  }
+}
+
 export function PoseBlockCompositor({
   className,
   backdropUrl,
   frameWidth,
   frameHeight,
-  instances: _instances,
-  selectedIds: _selectedIds,
+  instances,
+  selectedIds,
   onSelect: _onSelect,
   onInstanceChange: _onInstanceChange,
   enableExport = true,
@@ -40,7 +55,16 @@ export function PoseBlockCompositor({
     }
   }, [frameWidth, frameHeight, set])
 
-  // Phase 2: sync instances / selectedIds props ↔ store
+  useEffect(() => {
+    if (instances === undefined) return
+    set({ instances: instances.map(toStoreInstance) })
+  }, [instances, set])
+
+  useEffect(() => {
+    if (selectedIds !== undefined) {
+      set({ selectedIds })
+    }
+  }, [selectedIds, set])
 
   return (
     <div className={className ?? 'relative h-full min-h-0 w-full'}>

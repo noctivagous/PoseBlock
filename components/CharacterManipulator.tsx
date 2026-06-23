@@ -6,9 +6,14 @@ import { Component, type ReactNode, useEffect, useMemo, useRef, useState } from 
 import { SkeletonUtils } from 'three-stdlib'
 import * as THREE from 'three'
 import { isFbxModelUrl } from '@/lib/characterModels'
+import { displayScale } from '@/lib/characterTransform'
+import {
+  anchorToWorldTransform,
+  applyAnchorToGroup,
+  syncAnchorFromGroup,
+} from '@/lib/framing/anchorAdapter'
 import { alignSkeletonToMixamoBind } from '@/lib/mixamoBind'
 import { composePose } from '@/lib/poseCompose'
-import { displayScale, baseScaleFromDisplay } from '@/lib/characterTransform'
 import { getAllPosePresets } from '@/lib/posePresets'
 import { lerpPose, resetPose } from '@/lib/poses'
 import { useStore } from '@/lib/store'
@@ -22,26 +27,37 @@ const DEG2RAD = Math.PI / 180
 type CharacterModelProps = {
   modelUrl: string
   groupRef: React.RefObject<THREE.Group | null>
+  instanceId: string
+  isSelected: boolean
+  isPrimary: boolean
 }
 
 type CharacterModelContentProps = {
   source: THREE.Object3D
   groupRef: React.RefObject<THREE.Group | null>
   alignMixamoBind: boolean
+  instanceId: string
+  isSelected: boolean
+  isPrimary: boolean
 }
 
-function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterModelContentProps) {
-  const basePoseId = useStore((s) => s.basePoseId)
-  const poseAdjustments = useStore((s) => s.poseAdjustments)
+function CharacterModelContent({
+  source,
+  groupRef,
+  alignMixamoBind,
+  instanceId,
+  isSelected,
+  isPrimary,
+}: CharacterModelContentProps) {
+  const instance = useStore((s) => s.instances.find((i) => i.id === instanceId))
   const posePresets = useStore((s) => s.posePresets)
-  const characterX = useStore((s) => s.characterX)
-  const characterY = useStore((s) => s.characterY)
-  const characterZ = useStore((s) => s.characterZ)
-  const characterRotationX = useStore((s) => s.characterRotationX)
-  const characterRotationY = useStore((s) => s.characterRotationY)
-  const characterScale = useStore((s) => s.characterScale)
+  const frameWidth = useStore((s) => s.frameWidth)
+  const frameHeight = useStore((s) => s.frameHeight)
   const interactionMode = useStore((s) => s.interactionMode)
+  const updateInstance = useStore((s) => s.updateInstance)
+  const selectInstance = useStore((s) => s.selectInstance)
   const set = useStore((s) => s.set)
+
   const skeletonRef = useRef<THREE.Skeleton | null>(null)
   const [skeleton, setSkeleton] = useState<THREE.Skeleton | null>(null)
   const isDragging = useRef(false)
@@ -52,46 +68,39 @@ function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterM
   const clonedScene = useMemo(() => SkeletonUtils.clone(source), [source])
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
   const composedPose = useMemo(() => {
-    const base = availablePoses[basePoseId]
+    if (!instance) return null
+    const base = availablePoses[instance.basePoseId]
     if (!base) return null
-    return composePose(base, poseAdjustments)
-  }, [availablePoses, basePoseId, poseAdjustments])
+    return composePose(base, instance.poseAdjustments)
+  }, [availablePoses, instance])
+
   const fit = useMemo(() => {
     const box = new THREE.Box3().setFromObject(clonedScene)
     const size = new THREE.Vector3()
     const center = new THREE.Vector3()
     box.getSize(size)
     box.getCenter(center)
-
     const safeHeight = size.y > 0 ? size.y : 1
     const scale = TARGET_MODEL_HEIGHT / safeHeight
     const yOffset = -box.min.y * scale
-
     return { scale, yOffset, size, center }
   }, [clonedScene])
 
   useEffect(() => {
     set({ characterError: null })
     let found: THREE.Skeleton | null = null
-
     clonedScene.traverse((obj) => {
       if ((obj as THREE.SkinnedMesh).isSkinnedMesh) {
         found = (obj as THREE.SkinnedMesh).skeleton
       }
     })
-
     if (!found) {
       set({ characterError: 'No skeleton found — retarget may have failed' })
       skeletonRef.current = null
       setSkeleton(null)
       return
     }
-
-    const aligned = alignMixamoBind ? alignSkeletonToMixamoBind(found) : 0
-    if (alignMixamoBind && aligned === 0 && process.env.NODE_ENV === 'development') {
-      console.warn('[mixamoBind] No bones aligned to Mixamo reference bind')
-    }
-
+    if (alignMixamoBind) alignSkeletonToMixamoBind(found)
     skeletonRef.current = found
     setSkeleton(found)
   }, [alignMixamoBind, clonedScene, set])
@@ -104,30 +113,44 @@ function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterM
 
   useEffect(() => {
     const group = groupRef.current
-    if (!group || isDragging.current) return
-    group.position.set(characterX, characterY, characterZ)
-    group.rotation.set(characterRotationX * DEG2RAD, characterRotationY * DEG2RAD, 0)
-    group.scale.setScalar(displayScale(characterScale, characterZ))
-  }, [
-    characterScale,
-    characterRotationX,
-    characterRotationY,
-    characterX,
-    characterY,
-    characterZ,
-    groupRef,
-  ])
+    if (!group || !instance || isDragging.current) return
+    applyAnchorToGroup(
+      group,
+      { x: instance.x, y: instance.y, scale: instance.scale, rotation: instance.rotation },
+      instance.characterZ,
+      instance.characterRotationX,
+      frameWidth,
+      frameHeight,
+    )
+  }, [instance, frameWidth, frameHeight, groupRef])
+
+  if (!instance) return null
+
+  const world = anchorToWorldTransform({
+    anchor: {
+      x: instance.x,
+      y: instance.y,
+      scale: instance.scale,
+      rotation: instance.rotation,
+    },
+    characterZ: instance.characterZ,
+    characterRotationX: instance.characterRotationX,
+    frameWidth,
+    frameHeight,
+  })
 
   const syncStoreFromGroup = () => {
     const group = groupRef.current
     if (!group) return
-    set({
-      characterX: group.position.x,
-      characterY: group.position.y,
-      characterZ: group.position.z,
-      characterRotationX: group.rotation.x / DEG2RAD,
-      characterRotationY: group.rotation.y / DEG2RAD,
-      characterScale: baseScaleFromDisplay(group.scale.x, group.position.z),
+    const synced = syncAnchorFromGroup(group, frameWidth, frameHeight)
+    updateInstance(instanceId, {
+      x: synced.x,
+      y: synced.y,
+      scale: synced.scale,
+      rotation: synced.rotation,
+      characterZ: synced.characterZ,
+      characterRotationX: synced.characterRotationX,
+      characterRotationY: synced.rotation,
     })
   }
 
@@ -140,19 +163,20 @@ function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterM
     group.position.set(
       hitPoint.x - dragOffset.current.x,
       hitPoint.y - dragOffset.current.y,
-      group.position.z
+      group.position.z,
     )
   }
 
   const onModelPointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (interactionMode !== 'transform') return
+    e.stopPropagation()
+    selectInstance(instanceId, { shiftKey: e.nativeEvent.shiftKey })
+
     const group = groupRef.current
     if (!group) return
 
-    e.stopPropagation()
     isDragging.current = true
     dragPointerId.current = e.pointerId
-
     dragPlane.set(new THREE.Vector3(0, 0, 1), -group.position.z)
     const hitPoint = new THREE.Vector3()
     if (e.ray.intersectPlane(dragPlane, hitPoint)) {
@@ -160,7 +184,6 @@ function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterM
     } else {
       dragOffset.current.set(0, 0, 0)
     }
-
     ;(e.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(e.pointerId)
   }
 
@@ -178,16 +201,20 @@ function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterM
     dragPointerId.current = null
     syncStoreFromGroup()
     ;(e.target as { releasePointerCapture?: (id: number) => void }).releasePointerCapture?.(
-      e.pointerId
+      e.pointerId,
     )
   }
 
   return (
     <group
       ref={groupRef}
-      position={[characterX, characterY, characterZ]}
-      rotation={[characterRotationX * DEG2RAD, characterRotationY * DEG2RAD, 0]}
-      scale={displayScale(characterScale, characterZ)}
+      position={[world.worldX, world.worldY, world.worldZ]}
+      rotation={[
+        world.characterRotationX * DEG2RAD,
+        world.characterRotationY * DEG2RAD,
+        0,
+      ]}
+      scale={displayScale(world.characterScale, world.worldZ)}
       onPointerDown={onModelPointerDown}
       onPointerMove={onModelPointerMove}
       onPointerUp={endModelDrag}
@@ -195,10 +222,22 @@ function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterM
     >
       <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
         <primitive object={clonedScene} />
-        {interactionMode === 'transform' && (
-          <BoundingBoxGizmo size={fit.size} center={fit.center} />
+        {isSelected && (
+          <mesh scale={[fit.size.x, fit.size.y, fit.size.z]}>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshBasicMaterial
+              color={isPrimary ? '#fbbf24' : '#38bdf8'}
+              wireframe
+              transparent
+              opacity={0.35}
+              depthTest={false}
+            />
+          </mesh>
         )}
-        {skeleton && (
+        {isPrimary && interactionMode === 'transform' && (
+          <BoundingBoxGizmo instanceId={instanceId} size={fit.size} center={fit.center} />
+        )}
+        {isPrimary && skeleton && (
           <>
             <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
             <PoseJointGizmo skeleton={skeleton} />
@@ -209,21 +248,39 @@ function CharacterModelContent({ source, groupRef, alignMixamoBind }: CharacterM
   )
 }
 
-function GlbCharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
-  const { scene } = useGLTF(modelUrl)
-  return <CharacterModelContent source={scene} groupRef={groupRef} alignMixamoBind={false} />
+function GlbCharacterModel(props: CharacterModelProps) {
+  const { scene } = useGLTF(props.modelUrl)
+  return (
+    <CharacterModelContent
+      source={scene}
+      groupRef={props.groupRef}
+      alignMixamoBind={false}
+      instanceId={props.instanceId}
+      isSelected={props.isSelected}
+      isPrimary={props.isPrimary}
+    />
+  )
 }
 
-function FbxCharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
-  const fbx = useFBX(modelUrl)
-  return <CharacterModelContent source={fbx} groupRef={groupRef} alignMixamoBind={true} />
+function FbxCharacterModel(props: CharacterModelProps) {
+  const fbx = useFBX(props.modelUrl)
+  return (
+    <CharacterModelContent
+      source={fbx}
+      groupRef={props.groupRef}
+      alignMixamoBind
+      instanceId={props.instanceId}
+      isSelected={props.isSelected}
+      isPrimary={props.isPrimary}
+    />
+  )
 }
 
-function CharacterModel({ modelUrl, groupRef }: CharacterModelProps) {
-  if (isFbxModelUrl(modelUrl)) {
-    return <FbxCharacterModel modelUrl={modelUrl} groupRef={groupRef} />
+function CharacterModel(props: CharacterModelProps) {
+  if (isFbxModelUrl(props.modelUrl)) {
+    return <FbxCharacterModel {...props} />
   }
-  return <GlbCharacterModel modelUrl={modelUrl} groupRef={groupRef} />
+  return <GlbCharacterModel {...props} />
 }
 
 type ErrorBoundaryProps = {
@@ -231,14 +288,7 @@ type ErrorBoundaryProps = {
   onError: (message: string) => void
 }
 
-type ErrorBoundaryState = {
-  hasError: boolean
-}
-
-class ModelErrorBoundary extends Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
+class ModelErrorBoundary extends Component<ErrorBoundaryProps, { hasError: boolean }> {
   state = { hasError: false }
 
   static getDerivedStateFromError() {
@@ -257,7 +307,6 @@ class ModelErrorBoundary extends Component<
 
 function CharacterPreloader() {
   const characterModels = useStore((s) => s.characterModels)
-
   useEffect(() => {
     for (const model of characterModels) {
       if (isFbxModelUrl(model.url)) {
@@ -267,23 +316,58 @@ function CharacterPreloader() {
       }
     }
   }, [characterModels])
-
   return null
 }
 
-export function CharacterManipulator() {
-  const modelUrl = useStore((s) => s.modelUrl)
+type CharacterManipulatorProps = {
+  instanceId: string
+  isSelected: boolean
+  isPrimary: boolean
+}
+
+export function CharacterManipulator({
+  instanceId,
+  isSelected,
+  isPrimary,
+}: CharacterManipulatorProps) {
+  const instance = useStore((s) => s.instances.find((i) => i.id === instanceId))
   const set = useStore((s) => s.set)
   const groupRef = useRef<THREE.Group>(null)
 
-  if (!modelUrl) return <CharacterPreloader />
+  if (!instance?.modelUrl) return null
+
+  return (
+    <ModelErrorBoundary
+      key={instance.modelUrl + instanceId}
+      onError={(msg) => set({ characterError: msg })}
+    >
+      <CharacterModel
+        modelUrl={instance.modelUrl}
+        groupRef={groupRef}
+        instanceId={instanceId}
+        isSelected={isSelected}
+        isPrimary={isPrimary}
+      />
+    </ModelErrorBoundary>
+  )
+}
+
+export function CharacterManipulatorLayer() {
+  const instances = useStore((s) => s.instances)
+  const selectedIds = useStore((s) => s.selectedIds)
+  const primaryId = selectedIds[0] ?? null
 
   return (
     <>
       <CharacterPreloader />
-      <ModelErrorBoundary key={modelUrl} onError={(msg) => set({ characterError: msg })}>
-        <CharacterModel key={modelUrl} modelUrl={modelUrl} groupRef={groupRef} />
-      </ModelErrorBoundary>
+      {instances.map((inst) => (
+        <CharacterManipulator
+          key={inst.id}
+          instanceId={inst.id}
+          isSelected={selectedIds.includes(inst.id)}
+          isPrimary={inst.id === primaryId}
+        />
+      ))}
     </>
   )
 }

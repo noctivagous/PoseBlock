@@ -44,10 +44,13 @@ export default function Home() {
               className="mt-2 text-sm underline"
               onClick={() => {
                 const first = characterModels[0]
-                set({
-                  characterError: null,
-                  modelUrl: first?.url ?? '',
-                })
+                const primaryId = useStore.getState().primarySelectedId()
+                if (primaryId && first) {
+                  useStore.getState().updateInstance(primaryId, {
+                    modelUrl: first.url,
+                  })
+                }
+                set({ characterError: null })
               }}
             >
               Retry

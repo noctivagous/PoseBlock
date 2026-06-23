@@ -5,7 +5,7 @@ import { OrthographicCamera } from '@react-three/drei'
 import { Suspense, useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { VIEW_HEIGHT } from '@/lib/sceneConstants'
-import { CharacterManipulator } from './CharacterManipulator'
+import { CharacterManipulatorLayer } from './CharacterManipulator'
 import { ExportRegistrar } from './ExportRegistrar'
 
 type SceneProps = {
@@ -49,7 +49,7 @@ export function Scene({ enableExport = true }: SceneProps) {
       <ambientLight intensity={0.6} />
       <directionalLight position={[2, 4, 5]} intensity={1.2} />
       <Suspense fallback={null}>
-        <CharacterManipulator />
+        <CharacterManipulatorLayer />
       </Suspense>
       {enableExport && <ExportRegistrar />}
     </Canvas>

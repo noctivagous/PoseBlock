@@ -1,35 +1,33 @@
 import type { ReactNode } from 'react'
+import type { PoseOp } from '@/lib/poseCompose'
 
-/** Single mannequin instance — Phase 2 adds multi-instance; shape defined for VideoGen adapter. */
+/** Single mannequin instance — VideoGen adapter uses feet-anchor x/y/scale. */
 export type PoseBlockInstance = {
   id: string
   modelUrl: string
   basePoseId: string
-  characterX: number
-  characterY: number
-  characterZ: number
-  characterRotationX: number
-  characterRotationY: number
-  characterScale: number
+  poseAdjustments?: PoseOp[]
+  /** Normalized feet-anchor X (0 = left, 1 = right). */
+  x: number
+  /** Normalized feet-anchor Y (0 = top, 1 = frame bottom, >1 below frame). */
+  y: number
+  /** Visual height multiplier at MANNEQUIN_BASE_HEIGHT_RATIO. */
+  scale: number
+  rotation: number
+  characterZ?: number
+  characterRotationX?: number
+  characterRotationY?: number
 }
 
 export type PoseBlockCompositorProps = {
   className?: string
-  /** Backdrop image URL. When omitted, internal store default is used (standalone). */
   backdropUrl?: string
-  /** Native frame dimensions when backdrop is not loaded via img onLoad. */
   frameWidth?: number
   frameHeight?: number
-  /**
-   * Controlled instances (VideoGen embed). When omitted, internal Zustand store
-   * drives a single character (standalone dev).
-   */
   instances?: PoseBlockInstance[]
   selectedIds?: string[]
   onSelect?: (ids: string[]) => void
   onInstanceChange?: (id: string, patch: Partial<PoseBlockInstance>) => void
-  /** Register full-res composite export handler (default true). */
   enableExport?: boolean
-  /** Overlay slots — error banners, assignment anchors, etc. */
   children?: ReactNode
 }

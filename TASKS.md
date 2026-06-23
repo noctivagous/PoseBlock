@@ -27,14 +27,14 @@ FEATURES THAT ARE NOT YET IN
 POSEBLOCK BUT HAVE TO BE FOR IT
 TO BE USED IN VIDEOGEN
 
-[ ] - Multiple mannequins 
-    [ ] - add mannequin
-    [ ] - select mannequins
+[x] - Multiple mannequins 
+    [x] - add mannequin
+    [x] - select mannequins
     one at a time or shift+click
     for selecting more than
     one.
 
-[ ] - Positioning the scale
+[x] - Positioning the scale
 and translation of the model
 with the convention provided by
 VideoGen where it is determined

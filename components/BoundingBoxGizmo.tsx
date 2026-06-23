@@ -1,19 +1,18 @@
 'use client'
 
-import { Html } from '@react-three/drei'
 import { useRef } from 'react'
+import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   clampCharacterZ,
   Z_STEP,
 } from '@/lib/characterTransform'
+import { clampMannequinScale } from '@/lib/framing'
 import { useStore } from '@/lib/store'
 
 const ROT_STEP = 15
 const PITCH_STEP = 12
 const MAX_PITCH = 160
-const MIN_SCALE = 0.15
-const MAX_SCALE = 4
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 function GizmoBtn({
@@ -42,54 +41,31 @@ function GizmoBtn({
 }
 
 type BoundingBoxGizmoProps = {
+  instanceId: string
   size: THREE.Vector3
   center: THREE.Vector3
 }
 
-export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
-  const set = useStore((s) => s.set)
-  const characterScale = useStore((s) => s.characterScale)
+export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoProps) {
+  const instance = useStore((s) => s.instances.find((i) => i.id === instanceId))
+  const updateInstance = useStore((s) => s.updateInstance)
   const scaleDrag = useRef<{ startScale: number; startY: number; pointerId: number } | null>(
-    null
+    null,
   )
+
+  if (!instance) return null
+
+  const patch = (partial: Parameters<typeof updateInstance>[1]) =>
+    updateInstance(instanceId, partial)
 
   const halfX = size.x / 2
   const halfY = size.y / 2
   const pad = 0.18
 
-  const rotateLeft = () =>
-    set({ characterRotationY: useStore.getState().characterRotationY - ROT_STEP })
-  const rotateRight = () =>
-    set({ characterRotationY: useStore.getState().characterRotationY + ROT_STEP })
-  const pitchTowardCamera = () =>
-    set({
-      characterRotationX: clamp(
-        useStore.getState().characterRotationX + PITCH_STEP,
-        -MAX_PITCH,
-        MAX_PITCH
-      ),
-    })
-  const pitchFeetTowardCamera = () =>
-    set({
-      characterRotationX: clamp(
-        useStore.getState().characterRotationX - PITCH_STEP,
-        -MAX_PITCH,
-        MAX_PITCH
-      ),
-    })
-  const moveTowardCamera = () => {
-    const z = clampCharacterZ(useStore.getState().characterZ + Z_STEP)
-    set({ characterZ: z })
-  }
-  const moveAwayFromCamera = () => {
-    const z = clampCharacterZ(useStore.getState().characterZ - Z_STEP)
-    set({ characterZ: z })
-  }
-
   const onScalePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     scaleDrag.current = {
-      startScale: characterScale,
+      startScale: instance.scale,
       startY: e.clientY,
       pointerId: e.pointerId,
     }
@@ -100,12 +76,7 @@ export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
     if (!scaleDrag.current || scaleDrag.current.pointerId !== e.pointerId) return
     e.stopPropagation()
     const delta = (scaleDrag.current.startY - e.clientY) * 0.008
-    const next = THREE.MathUtils.clamp(
-      scaleDrag.current.startScale + delta,
-      MIN_SCALE,
-      MAX_SCALE
-    )
-    set({ characterScale: next })
+    patch({ scale: clampMannequinScale(scaleDrag.current.startScale + delta) })
   }
 
   const endScaleDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -128,45 +99,68 @@ export function BoundingBoxGizmo({ size, center }: BoundingBoxGizmoProps) {
         />
       </mesh>
 
-      {/* Rotate left */}
       <Html position={[-halfX - pad, halfY * 0.25, 0]} center style={{ pointerEvents: 'auto' }}>
-        <GizmoBtn label="↺" title="Rotate left" onClick={rotateLeft} />
+        <GizmoBtn
+          label="↺"
+          title="Rotate left"
+          onClick={() => patch({ rotation: instance.rotation - ROT_STEP })}
+        />
       </Html>
 
-      {/* Rotate right */}
       <Html position={[halfX + pad, halfY * 0.25, 0]} center style={{ pointerEvents: 'auto' }}>
-        <GizmoBtn label="↻" title="Rotate right" onClick={rotateRight} />
+        <GizmoBtn
+          label="↻"
+          title="Rotate right"
+          onClick={() => patch({ rotation: instance.rotation + ROT_STEP })}
+        />
       </Html>
 
-      {/* Depth: closer / farther */}
       <Html position={[0, halfY + pad, 0]} center style={{ pointerEvents: 'auto' }}>
         <div className="flex gap-1">
-          <GizmoBtn label="↑" title="Move closer (larger)" onClick={moveTowardCamera} />
-          <GizmoBtn label="↓" title="Move farther (smaller)" onClick={moveAwayFromCamera} />
+          <GizmoBtn
+            label="↑"
+            title="Move closer (larger)"
+            onClick={() => patch({ characterZ: clampCharacterZ(instance.characterZ + Z_STEP) })}
+          />
+          <GizmoBtn
+            label="↓"
+            title="Move farther (smaller)"
+            onClick={() => patch({ characterZ: clampCharacterZ(instance.characterZ - Z_STEP) })}
+          />
         </div>
       </Html>
 
-      {/* Pitch: head/feet toward camera (separate lane to avoid overlap) */}
-      <Html
-        position={[-halfX - pad, -halfY * 0.25, 0]}
-        center
-        style={{ pointerEvents: 'auto' }}
-      >
+      <Html position={[-halfX - pad, -halfY * 0.25, 0]} center style={{ pointerEvents: 'auto' }}>
         <div className="flex gap-1">
           <GizmoBtn
             label="P+"
-            title="Pitch toward camera (flying)"
-            onClick={pitchTowardCamera}
+            title="Pitch toward camera"
+            onClick={() =>
+              patch({
+                characterRotationX: clamp(
+                  instance.characterRotationX + PITCH_STEP,
+                  -MAX_PITCH,
+                  MAX_PITCH,
+                ),
+              })
+            }
           />
           <GizmoBtn
             label="P-"
-            title="Pitch opposite direction (feet toward camera)"
-            onClick={pitchFeetTowardCamera}
+            title="Pitch feet toward camera"
+            onClick={() =>
+              patch({
+                characterRotationX: clamp(
+                  instance.characterRotationX - PITCH_STEP,
+                  -MAX_PITCH,
+                  MAX_PITCH,
+                ),
+              })
+            }
           />
         </div>
       </Html>
 
-      {/* Scale handle — HTML button with drag-to-scale */}
       <Html position={[halfX + 0.34, -halfY * 0.22, 0]} center style={{ pointerEvents: 'auto' }}>
         <div className="flex items-center gap-1">
           <button

@@ -1,5 +1,3 @@
-'use client'
-
 import { useEffect } from 'react'
 import type { CharacterModel } from '@/lib/characterModels'
 import { getAllPosePresets } from '@/lib/posePresets'
@@ -9,21 +7,21 @@ import { useStore } from '@/lib/store'
 /** Load character models and pose presets from standalone API routes. */
 export function usePoseBlockBootstrap() {
   const set = useStore((s) => s.set)
+  const addInstance = useStore((s) => s.addInstance)
 
   useEffect(() => {
     fetch('/api/models')
       .then((res) => res.json())
       .then((models: CharacterModel[]) => {
         set({ characterModels: models })
-        const currentUrl = useStore.getState().modelUrl
-        if (models.length > 0 && !models.some((m) => m.url === currentUrl)) {
-          set({ modelUrl: models[0].url })
+        if (models.length > 0 && useStore.getState().instances.length === 0) {
+          addInstance({ modelUrl: models[0].url })
         }
       })
       .catch(() => {
         set({ characterError: 'Could not load models from /public/models' })
       })
-  }, [set])
+  }, [set, addInstance])
 
   useEffect(() => {
     fetch('/api/poses')
@@ -31,11 +29,15 @@ export function usePoseBlockBootstrap() {
       .then((presets: Record<string, Pose>) => {
         set({ posePresets: presets })
         const available = getAllPosePresets(presets)
-        const current = useStore.getState().basePoseId
-        if (!available[current]) {
-          const first = Object.keys(available)[0]
-          set({ basePoseId: first ?? 't_pose' })
-        }
+        const { instances } = useStore.getState()
+        if (instances.length === 0) return
+        const firstKey = Object.keys(available)[0]
+        if (!firstKey) return
+        set({
+          instances: instances.map((inst) =>
+            available[inst.basePoseId] ? inst : { ...inst, basePoseId: firstKey },
+          ),
+        })
       })
       .catch(() => {
         // Keep built-in fallback presets when external JSON presets fail to load.

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from 'react'
 import { ExportButton } from '@/components/ExportButton'
+import { InstanceMannequinPanel } from '@/components/InstanceMannequinPanel'
 import { PoseAdjustToolbar } from '@/components/PoseAdjustToolbar'
 import { Toolbar } from '@/components/Toolbar'
 import { useStore } from '@/lib/store'
@@ -34,6 +35,7 @@ export function PoseBlockDevPanel() {
         </p>
       </div>
 
+      <InstanceMannequinPanel />
       <Toolbar />
       <PoseAdjustToolbar />
 

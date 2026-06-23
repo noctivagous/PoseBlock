@@ -144,35 +144,49 @@ function LegColPair({
 }
 
 export function PoseAdjustToolbar() {
-  const basePoseId = useStore((s) => s.basePoseId)
-  const poseAdjustments = useStore((s) => s.poseAdjustments)
-  const poseAdjustmentPast = useStore((s) => s.poseAdjustmentPast)
-  const poseAdjustmentFuture = useStore((s) => s.poseAdjustmentFuture)
+  const instances = useStore((s) => s.instances)
+  const selectedIds = useStore((s) => s.selectedIds)
+  const primaryId = selectedIds[0] ?? null
+  const primary = instances.find((i) => i.id === primaryId)
   const posePresets = useStore((s) => s.posePresets)
   const pushPoseOp = useStore((s) => s.pushPoseOp)
   const undoPoseAdjustment = useStore((s) => s.undoPoseAdjustment)
   const redoPoseAdjustment = useStore((s) => s.redoPoseAdjustment)
   const resetPoseAdjustments = useStore((s) => s.resetPoseAdjustments)
   const setBasePoseId = useStore((s) => s.setBasePoseId)
+  const updateInstance = useStore((s) => s.updateInstance)
   const set = useStore((s) => s.set)
-  const characterScale = useStore((s) => s.characterScale)
+
+  if (!primary) {
+    return null
+  }
+
+  const {
+    basePoseId,
+    poseAdjustments,
+    poseAdjustmentPast,
+    poseAdjustmentFuture,
+    scale: characterScale,
+    characterZ,
+    y: anchorY,
+  } = primary
 
   const scaleUp = () =>
-    set({ characterScale: Math.min(MAX_SCALE, characterScale + SCALE_STEP) })
+    updateInstance(primary.id, {
+      scale: Math.min(MAX_SCALE, characterScale + SCALE_STEP),
+    })
   const scaleDown = () =>
-    set({ characterScale: Math.max(MIN_SCALE, characterScale - SCALE_STEP) })
+    updateInstance(primary.id, {
+      scale: Math.max(MIN_SCALE, characterScale - SCALE_STEP),
+    })
 
-  // Toward / Away: change Z (which affects display scale) and shift Y to keep
-  // the character's feet roughly stationary on screen.
   const dolly = (direction: 1 | -1) => {
-    const { characterZ, characterY, characterScale: cs } = useStore.getState()
     const newZ = clampCharacterZ(characterZ + direction * Z_STEP)
     const oldFactor = depthScaleFactor(characterZ)
     const newFactor = depthScaleFactor(newZ)
-    // Visual half-height ≈ characterScale * oldFactor * 0.9 (TARGET_MODEL_HEIGHT/2)
-    const halfH = cs * oldFactor * 0.9
+    const halfH = characterScale * oldFactor * 0.9
     const centerShift = halfH * (newFactor / oldFactor - 1)
-    set({ characterZ: newZ, characterY: characterY + centerShift })
+    updateInstance(primary.id, { characterZ: newZ, y: anchorY + centerShift })
   }
 
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])

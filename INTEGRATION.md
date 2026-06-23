@@ -306,23 +306,23 @@ These must work in standalone PoseBlock before VideoGen embed.
 
 #### Multiple mannequins
 
-- [ ] **2.1** Replace single `modelUrl` / `characterX/Y/Z` with `instances: CharacterInstance[]` in store
-- [ ] **2.2** Each instance: `id`, `modelUrl`, transform, pose state, `selected`
-- [ ] **2.3** Scene renders one `CharacterManipulator` (or equivalent) per instance
-- [ ] **2.4** Add mannequin — append instance with defaults; enforce max count (5 principal / 10 crowd — match VideoGen)
-- [ ] **2.5** Remove mannequin — delete instance; clear from selection
-- [ ] **2.6** Selection model: click instance to select; **Shift+click** toggles multi-select
-- [ ] **2.7** Multi-select editing: right-panel changes apply to all selected instances (character model, pose preset); transform edits apply to primary selection only
-- [ ] **2.8** Export composite renders all instances
+- [x] **2.1** Replace single `modelUrl` / `characterX/Y/Z` with `instances: CharacterInstance[]` in store
+- [x] **2.2** Each instance: `id`, `modelUrl`, transform, pose state, `selected`
+- [x] **2.3** Scene renders one `CharacterManipulator` (or equivalent) per instance
+- [x] **2.4** Add mannequin — append instance with defaults; enforce max count (5 principal / 10 crowd — match VideoGen)
+- [x] **2.5** Remove mannequin — delete instance; clear from selection
+- [x] **2.6** Selection model: click instance to select; **Shift+click** toggles multi-select
+- [x] **2.7** Multi-select editing: right-panel changes apply to all selected instances (character model, pose preset); transform edits apply to primary selection only
+- [x] **2.8** Export composite renders all instances
 
 #### VideoGen coordinate convention
 
-- [ ] **2.9** Implement `anchorToWorldTransform` / `worldTransformToAnchor` in `PoseBlock/lib/framing/`
-- [ ] **2.10** Drag on canvas updates feet-anchor `x/y/scale` through adapter (not raw world coords in persisted state)
-- [ ] **2.11** Numeric fields in panel display VideoGen convention (percentages / anchor values)
-- [ ] **2.12** Support `y > 1` (CU/ECU feet below frame) and scale-aware `maxFeetAnchorY`
-- [ ] **2.13** Bounds inspector fields (`insetLeft/Right/Top/Bottom`, `widthToFrameHeight`) sync through `anchorToBoundsFrame` / `boundsFrameToAnchor` logic (port or shared package)
-- [ ] **2.14** Unit tests: anchor ↔ world round-trip at 16:9, 9:16, and ECU scale extremes
+- [x] **2.9** Implement `anchorToWorldTransform` / `worldTransformToAnchor` in `PoseBlock/lib/framing/`
+- [x] **2.10** Drag on canvas updates feet-anchor `x/y/scale` through adapter (not raw world coords in persisted state)
+- [x] **2.11** Numeric fields in panel display VideoGen convention (percentages / anchor values)
+- [x] **2.12** Support `y > 1` (CU/ECU feet below frame) and scale-aware `maxFeetAnchorY`
+- [x] **2.13** Bounds inspector fields (`insetLeft/Right/Top/Bottom`, `widthToFrameHeight`) sync through `anchorToBoundsFrame` / `boundsFrameToAnchor` logic (port or shared package)
+- [x] **2.14** Unit tests: anchor ↔ world round-trip at 16:9, 9:16, and ECU scale extremes
 
 ### Phase 3 — VideoGen right panel
 
