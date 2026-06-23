@@ -53,6 +53,8 @@ export function handGesturePose(hand: 'Left' | 'Right', gesture: HandGesture): P
 /** Build a bind-relative Mixamo pose from simple blocking parameters (degrees). */
 export function buildProceduralPose(params: ProceduralPoseParams): Pose {
   const pose: Pose = {}
+  const armOut = { left: -1, right: 1 }
+  const limbHinge = { left: 1, right: -1 }
 
   const {
     leftArmRaise = 0,
@@ -75,21 +77,23 @@ export function buildProceduralPose(params: ProceduralPoseParams): Pose {
   }
 
   if (leftArmRaise !== 0 || leftArmOut !== 0) {
-    pose.LeftArm = quatFromDegrees(-leftArmRaise, 0, -leftArmOut)
+    pose.LeftArm = quatFromDegrees(-leftArmRaise, 0, armOut.left * leftArmOut)
   }
   if (rightArmRaise !== 0 || rightArmOut !== 0) {
-    pose.RightArm = quatFromDegrees(-rightArmRaise, 0, rightArmOut)
+    pose.RightArm = quatFromDegrees(-rightArmRaise, 0, armOut.right * rightArmOut)
   }
   if (leftForeArmBend !== 0) {
-    pose.LeftForeArm = quatFromDegrees(0, leftForeArmBend, 0)
+    // Mixamo elbows hinge primarily on local Z; Y mostly twists the forearm.
+    pose.LeftForeArm = quatFromDegrees(0, 0, limbHinge.left * leftForeArmBend)
   }
   if (rightForeArmBend !== 0) {
-    pose.RightForeArm = quatFromDegrees(0, -rightForeArmBend, 0)
+    pose.RightForeArm = quatFromDegrees(0, 0, limbHinge.right * rightForeArmBend)
   }
 
   if (stanceWidth !== 0) {
-    pose.LeftUpLeg = quatFromDegrees(0, -stanceWidth, 0)
-    pose.RightUpLeg = quatFromDegrees(0, stanceWidth, 0)
+    // Hip width is abduction/adduction (local Z), not yaw (local Y).
+    pose.LeftUpLeg = quatFromDegrees(0, 0, limbHinge.left * stanceWidth)
+    pose.RightUpLeg = quatFromDegrees(0, 0, limbHinge.right * stanceWidth)
   }
 
   Object.assign(pose, handGesturePose('Left', leftHand))

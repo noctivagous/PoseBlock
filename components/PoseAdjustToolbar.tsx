@@ -11,7 +11,9 @@ import {
   legNudge,
   NUDGE,
   stanceNudge,
+  thighTwist,
   torsoNudge,
+  upperArmTwist,
   wholeRotate,
 } from '@/lib/poseAdjustmentActions'
 import { clampCharacterZ, depthScaleFactor, Z_STEP } from '@/lib/characterTransform'
@@ -131,6 +133,12 @@ function LegColPair({
         <Btn tone={tone} label="Out" onClick={() => pushPoseOp(legNudge(side, { out: NUDGE.legOut }, part))} />
         <Btn tone={tone} label="In" onClick={() => pushPoseOp(legNudge(side, { out: -NUDGE.legOut }, part))} />
       </Col>
+      {part === 'thigh' && (
+        <Col>
+          <Btn tone="light" label="Turn Out" onClick={() => pushPoseOp(thighTwist(side, -NUDGE.legTwist))} />
+          <Btn tone="light" label="Turn In" onClick={() => pushPoseOp(thighTwist(side, NUDGE.legTwist))} />
+        </Col>
+      )}
     </ColPair>
   )
 }
@@ -223,14 +231,14 @@ export function PoseAdjustToolbar() {
           <SummaryLine label="Whole" value={[fmt(summary.whole.pitch), fmt(summary.whole.yaw), fmt(summary.whole.roll)].filter(Boolean).join(' ')} />
           <SummaryLine label="Head" value={[fmt(summary.head.pitch), fmt(summary.head.yaw), fmt(summary.head.roll)].filter(Boolean).join(' ')} />
           <SummaryLine label="Torso" value={[fmt(summary.torso.pitch), fmt(summary.torso.yaw), fmt(summary.torso.roll)].filter(Boolean).join(' ')} />
-          <SummaryLine label="L arm" value={[summary.leftArm.raise ? `raise ${fmt(summary.leftArm.raise)}` : '', summary.leftArm.out ? `out ${fmt(summary.leftArm.out)}` : ''].filter(Boolean).join(' ')} />
-          <SummaryLine label="R arm" value={[summary.rightArm.raise ? `raise ${fmt(summary.rightArm.raise)}` : '', summary.rightArm.out ? `out ${fmt(summary.rightArm.out)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="L arm" value={[summary.leftArm.raise ? `raise ${fmt(summary.leftArm.raise)}` : '', summary.leftArm.out ? `out ${fmt(summary.leftArm.out)}` : '', summary.leftArm.twist ? `twist ${fmt(summary.leftArm.twist)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="R arm" value={[summary.rightArm.raise ? `raise ${fmt(summary.rightArm.raise)}` : '', summary.rightArm.out ? `out ${fmt(summary.rightArm.out)}` : '', summary.rightArm.twist ? `twist ${fmt(summary.rightArm.twist)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="L forearm" value={fmt(summary.leftForeArm)} />
           <SummaryLine label="R forearm" value={fmt(summary.rightForeArm)} />
           <SummaryLine label="L hand" value={[summary.leftHand ?? '', [fmt(summary.leftHandRot.pitch), fmt(summary.leftHandRot.yaw)].filter(Boolean).join(' ')].filter(Boolean).join(' · ')} />
           <SummaryLine label="R hand" value={[summary.rightHand ?? '', [fmt(summary.rightHandRot.pitch), fmt(summary.rightHandRot.yaw)].filter(Boolean).join(' ')].filter(Boolean).join(' · ')} />
-          <SummaryLine label="L thigh" value={[summary.leftLeg.forward ? `fwd ${fmt(summary.leftLeg.forward)}` : '', summary.leftLeg.out ? `out ${fmt(summary.leftLeg.out)}` : ''].filter(Boolean).join(' ')} />
-          <SummaryLine label="R thigh" value={[summary.rightLeg.forward ? `fwd ${fmt(summary.rightLeg.forward)}` : '', summary.rightLeg.out ? `out ${fmt(summary.rightLeg.out)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="L thigh" value={[summary.leftLeg.forward ? `fwd ${fmt(summary.leftLeg.forward)}` : '', summary.leftLeg.out ? `out ${fmt(summary.leftLeg.out)}` : '', summary.leftLeg.twist ? `twist ${fmt(summary.leftLeg.twist)}` : ''].filter(Boolean).join(' ')} />
+          <SummaryLine label="R thigh" value={[summary.rightLeg.forward ? `fwd ${fmt(summary.rightLeg.forward)}` : '', summary.rightLeg.out ? `out ${fmt(summary.rightLeg.out)}` : '', summary.rightLeg.twist ? `twist ${fmt(summary.rightLeg.twist)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="L lower leg" value={[summary.leftLowerLeg.forward ? `fwd ${fmt(summary.leftLowerLeg.forward)}` : '', summary.leftLowerLeg.out ? `out ${fmt(summary.leftLowerLeg.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="R lower leg" value={[summary.rightLowerLeg.forward ? `fwd ${fmt(summary.rightLowerLeg.forward)}` : '', summary.rightLowerLeg.out ? `out ${fmt(summary.rightLowerLeg.out)}` : ''].filter(Boolean).join(' ')} />
           <SummaryLine label="L foot" value={[summary.leftFoot.forward ? `fwd ${fmt(summary.leftFoot.forward)}` : '', summary.leftFoot.out ? `out ${fmt(summary.leftFoot.out)}` : ''].filter(Boolean).join(' ')} />
@@ -292,6 +300,10 @@ export function PoseAdjustToolbar() {
                 <Btn label="Out" onClick={() => pushPoseOp(armNudge('left', { out: NUDGE.armOut }))} />
                 <Btn label="In" onClick={() => pushPoseOp(armNudge('left', { out: -NUDGE.armOut }))} />
               </Col>
+              <Col>
+                <Btn tone="light" label="Turn Out" onClick={() => pushPoseOp(upperArmTwist('left', -NUDGE.armTwist))} />
+                <Btn tone="light" label="Turn In" onClick={() => pushPoseOp(upperArmTwist('left', NUDGE.armTwist))} />
+              </Col>
             </ColPair>
           }
           right={
@@ -303,6 +315,10 @@ export function PoseAdjustToolbar() {
               <Col>
                 <Btn label="Out" onClick={() => pushPoseOp(armNudge('right', { out: NUDGE.armOut }))} />
                 <Btn label="In" onClick={() => pushPoseOp(armNudge('right', { out: -NUDGE.armOut }))} />
+              </Col>
+              <Col>
+                <Btn tone="light" label="Turn Out" onClick={() => pushPoseOp(upperArmTwist('right', -NUDGE.armTwist))} />
+                <Btn tone="light" label="Turn In" onClick={() => pushPoseOp(upperArmTwist('right', NUDGE.armTwist))} />
               </Col>
             </ColPair>
           }

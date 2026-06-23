@@ -9,10 +9,12 @@ export const NUDGE = {
   head: 5,
   armRaise: 10,
   armOut: 8,
+  armTwist: 8,
   foreArm: 10,
   hand: 8,
   legForward: 12,
   legOut: 8,
+  legTwist: 8,
   torso: 6,
   stance: 4,
   whole: 6,
@@ -100,6 +102,16 @@ export function foreArmFlex(side: 'left' | 'right', degrees: number): PoseOp {
 /** @deprecated use foreArmTwist or foreArmFlex */
 export function foreArmNudge(side: 'left' | 'right', foreArm: number): PoseOp {
   return foreArmTwist(side, foreArm)
+}
+
+/** Turn Out / Turn In — upper arm longitudinal twist (Y-axis rotation on LeftArm / RightArm) */
+export function upperArmTwist(side: 'left' | 'right', degrees: number): PoseOp {
+  return { type: 'nudgeArm', side, twist: degrees }
+}
+
+/** Turn Out / Turn In — thigh internal/external hip rotation (Y-axis on LeftUpLeg / RightUpLeg) */
+export function thighTwist(side: 'left' | 'right', degrees: number): PoseOp {
+  return { type: 'nudgeLeg', side, part: 'thigh', twist: degrees }
 }
 
 export function opsForBodyPart(

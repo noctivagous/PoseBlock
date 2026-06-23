@@ -2,11 +2,12 @@
 
 ## Goal
 
-Standalone Next.js app for **pose blocking**: load a video frame, position and pose a Mixamo-rigged 3D mannequin on top, export a full-resolution PNG for inpainting / AI video tools.
+Standalone Next.js app for **pose blocking**: load a video frame, position and pose a Mixamo-rigged 3D mannequin on top, built for exporting a full-resolution PNG for inpainting / AI video tools.
 
 **In scope:** frame upload, drag-to-position mannequin, pose picker, composite export.
 
-**Out of scope (v1):** video generation, prompts, in-app SAM inference, multiple characters, finger pose editor.
+**Out of scope (v1):** video generation, prompts, in-app SAM inference, multiple characters, finger pose editor, automatic
+vanishing point detection.
 
 Later this folds into **videogen** — same component boundaries and Zustand state shape.
 

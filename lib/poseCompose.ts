@@ -11,8 +11,9 @@ export type PoseOp =
       side: 'left' | 'right'
       raise?: number
       out?: number
-      foreArm?: number    // Y-axis twist (Turn Out / Turn In)
-      foreArmFlex?: number // Z-axis flex (Lift / Lower)
+      twist?: number      // Y-axis longitudinal twist (Turn Out / Turn In) on upper arm
+      foreArm?: number    // Y-axis twist (Turn Out / Turn In) on forearm
+      foreArmFlex?: number // Z-axis flex (Lift / Lower) on forearm
     }
   | { type: 'nudgeTorso'; pitch?: number; yaw?: number; roll?: number }
   | { type: 'nudgeStance'; width?: number }
@@ -21,7 +22,8 @@ export type PoseOp =
       side: 'left' | 'right'
       part?: 'thigh' | 'lower' | 'foot'
       forward?: number
-      out?: number
+      out?: number        // Z-axis abduction for thigh; Y-axis for lower/foot
+      twist?: number      // Y-axis internal/external rotation (thigh Turn Out / Turn In)
     }
   | { type: 'setHand'; side: 'left' | 'right'; gesture: HandGesture }
 
@@ -53,6 +55,7 @@ function applyNudgeArm(pose: Pose, op: Extract<PoseOp, { type: 'nudgeArm' }>) {
   const prefix = op.side === 'left' ? 'Left' : 'Right'
   const raise = op.raise ?? 0
   const out = op.out ?? 0
+  const twist = op.twist ?? 0
   const foreArm = op.foreArm ?? 0
   const foreArmFlex = op.foreArmFlex ?? 0
 
@@ -64,8 +67,17 @@ function applyNudgeArm(pose: Pose, op: Extract<PoseOp, { type: 'nudgeArm' }>) {
     }
   }
 
+  if (twist !== 0) {
+    // Y-axis: longitudinal twist of the upper arm (Turn Out / Turn In)
+    if (op.side === 'left') {
+      multiplyBoneDelta(pose, `${prefix}Arm`, 0, twist, 0)
+    } else {
+      multiplyBoneDelta(pose, `${prefix}Arm`, 0, -twist, 0)
+    }
+  }
+
   if (foreArm !== 0) {
-    // Y-axis: twist / supination (Turn Out / Turn In)
+    // Y-axis: twist / supination of forearm (Turn Out / Turn In)
     if (op.side === 'left') {
       multiplyBoneDelta(pose, `${prefix}ForeArm`, 0, foreArm, 0)
     } else {
@@ -117,11 +129,33 @@ function applyNudgeLeg(pose: Pose, op: Extract<PoseOp, { type: 'nudgeLeg' }>) {
   const bone = legBone(op.side, part)
   const forward = op.forward ?? 0
   const out = op.out ?? 0
-  if (forward === 0 && out === 0) return
-  if (op.side === 'left') {
-    multiplyBoneDelta(pose, bone, forward, -out, 0)
-  } else {
-    multiplyBoneDelta(pose, bone, forward, out, 0)
+  const twist = op.twist ?? 0
+
+  if (forward !== 0 || out !== 0) {
+    if (part === 'thigh') {
+      // Z-axis: true abduction/adduction (leg swings sideways — Out/In)
+      if (op.side === 'left') {
+        multiplyBoneDelta(pose, bone, forward, 0, -out)
+      } else {
+        multiplyBoneDelta(pose, bone, forward, 0, out)
+      }
+    } else {
+      // Y-axis for lower leg / foot (knee/ankle twist-out)
+      if (op.side === 'left') {
+        multiplyBoneDelta(pose, bone, forward, -out, 0)
+      } else {
+        multiplyBoneDelta(pose, bone, forward, out, 0)
+      }
+    }
+  }
+
+  if (twist !== 0 && part === 'thigh') {
+    // Y-axis: internal/external hip rotation (Turn Out / Turn In)
+    if (op.side === 'left') {
+      multiplyBoneDelta(pose, bone, 0, -twist, 0)
+    } else {
+      multiplyBoneDelta(pose, bone, 0, twist, 0)
+    }
   }
 }
 
@@ -199,6 +233,7 @@ function mergeSameOp(existing: PoseOp, incoming: PoseOp): PoseOp {
         side: existing.side,
         raise: (existing.raise ?? 0) + (next.raise ?? 0),
         out: (existing.out ?? 0) + (next.out ?? 0),
+        twist: (existing.twist ?? 0) + (next.twist ?? 0),
         foreArm: (existing.foreArm ?? 0) + (next.foreArm ?? 0),
         foreArmFlex: (existing.foreArmFlex ?? 0) + (next.foreArmFlex ?? 0),
       }
@@ -225,6 +260,7 @@ function mergeSameOp(existing: PoseOp, incoming: PoseOp): PoseOp {
         part: existing.part ?? 'thigh',
         forward: (existing.forward ?? 0) + (next.forward ?? 0),
         out: (existing.out ?? 0) + (next.out ?? 0),
+        twist: (existing.twist ?? 0) + (next.twist ?? 0),
       }
     }
     case 'setHand':
@@ -252,16 +288,16 @@ export function resolveBasePose(
 export type PoseAdjustmentSummary = {
   head: { pitch: number; yaw: number; roll: number }
   torso: { pitch: number; yaw: number; roll: number }
-  leftArm: { raise: number; out: number; foreArm: number }
-  rightArm: { raise: number; out: number; foreArm: number }
+  leftArm: { raise: number; out: number; twist: number; foreArm: number }
+  rightArm: { raise: number; out: number; twist: number; foreArm: number }
   leftForeArm: number
   rightForeArm: number
   leftHand: string | null
   rightHand: string | null
   leftHandRot: { pitch: number; yaw: number }
   rightHandRot: { pitch: number; yaw: number }
-  leftLeg: { forward: number; out: number }
-  rightLeg: { forward: number; out: number }
+  leftLeg: { forward: number; out: number; twist: number }
+  rightLeg: { forward: number; out: number; twist: number }
   leftLowerLeg: { forward: number; out: number }
   rightLowerLeg: { forward: number; out: number }
   leftFoot: { forward: number; out: number }
@@ -274,16 +310,16 @@ export function summarizePoseOps(ops: PoseOp[]): PoseAdjustmentSummary {
   const summary: PoseAdjustmentSummary = {
     head: { pitch: 0, yaw: 0, roll: 0 },
     torso: { pitch: 0, yaw: 0, roll: 0 },
-    leftArm: { raise: 0, out: 0, foreArm: 0 },
-    rightArm: { raise: 0, out: 0, foreArm: 0 },
+    leftArm: { raise: 0, out: 0, twist: 0, foreArm: 0 },
+    rightArm: { raise: 0, out: 0, twist: 0, foreArm: 0 },
     leftForeArm: 0,
     rightForeArm: 0,
     leftHand: null,
     rightHand: null,
     leftHandRot: { pitch: 0, yaw: 0 },
     rightHandRot: { pitch: 0, yaw: 0 },
-    leftLeg: { forward: 0, out: 0 },
-    rightLeg: { forward: 0, out: 0 },
+    leftLeg: { forward: 0, out: 0, twist: 0 },
+    rightLeg: { forward: 0, out: 0, twist: 0 },
     leftLowerLeg: { forward: 0, out: 0 },
     rightLowerLeg: { forward: 0, out: 0 },
     leftFoot: { forward: 0, out: 0 },
@@ -318,11 +354,13 @@ export function summarizePoseOps(ops: PoseOp[]): PoseAdjustmentSummary {
         if (op.side === 'left') {
           summary.leftArm.raise += op.raise ?? 0
           summary.leftArm.out += op.out ?? 0
+          summary.leftArm.twist += op.twist ?? 0
           summary.leftArm.foreArm += op.foreArm ?? 0
           summary.leftForeArm += op.foreArm ?? 0
         } else {
           summary.rightArm.raise += op.raise ?? 0
           summary.rightArm.out += op.out ?? 0
+          summary.rightArm.twist += op.twist ?? 0
           summary.rightArm.foreArm += op.foreArm ?? 0
           summary.rightForeArm += op.foreArm ?? 0
         }
@@ -338,6 +376,7 @@ export function summarizePoseOps(ops: PoseOp[]): PoseAdjustmentSummary {
                 : summary.leftFoot
           leg.forward += op.forward ?? 0
           leg.out += op.out ?? 0
+          if (part === 'thigh') (leg as typeof summary.leftLeg).twist += op.twist ?? 0
         } else {
           const leg =
             part === 'thigh'
@@ -347,6 +386,7 @@ export function summarizePoseOps(ops: PoseOp[]): PoseAdjustmentSummary {
                 : summary.rightFoot
           leg.forward += op.forward ?? 0
           leg.out += op.out ?? 0
+          if (part === 'thigh') (leg as typeof summary.rightLeg).twist += op.twist ?? 0
         }
         break
       }
