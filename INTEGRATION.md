@@ -326,14 +326,14 @@ These must work in standalone PoseBlock before VideoGen embed.
 
 ### Phase 3 — VideoGen right panel
 
-- [ ] **3.1** Create `components/studio/PoseBlockPanel.tsx` — full mannequin control surface
-- [ ] **3.2** Mount in right aside in `StudioShell.tsx` (workflow-gated: visible when mannequins / blocking workflows are active)
-- [ ] **3.3** Wire panel to `useStudioStore` mannequin actions (`addMannequin`, `updateMannequin`, `removeMannequin`, `assignMannequinSubjectSlot`)
-- [ ] **3.4** Port overlay inspector fields from `MannequinPlacementLayer` into `PoseBlockPanel` (gender, age, pose, bounds, character assignment)
-- [ ] **3.5** Port PoseBlock pose-editing UI (`PoseAdjustToolbar`, `PoseBodyPicker`, `PosePartControls`) into panel sections
-- [ ] **3.6** Remove `mannequin-inspector-panel` from `MannequinPlacementLayer` (or retire layer entirely)
-- [ ] **3.7** Mobile drawer: add Mannequins section using same `PoseBlockPanel`
-- [ ] **3.8** Match VideoGen styling — `control-panel`, `InspectorField`, `RangeSlider`, `VisualDropdown` patterns from existing panels
+- [x] **3.1** Create `components/studio/PoseBlockPanel.tsx` — full mannequin control surface
+- [x] **3.2** Mount in right aside in `StudioShell.tsx` (workflow-gated: visible when mannequins / blocking workflows are active)
+- [x] **3.3** Wire panel to `useStudioStore` mannequin actions (`addMannequin`, `updateMannequin`, `removeMannequin`, `assignMannequinSubjectSlot`)
+- [x] **3.4** Port overlay inspector fields from `MannequinPlacementLayer` into `PoseBlockPanel` (gender, age, pose, bounds, character assignment)
+- [x] **3.5** Port PoseBlock pose-editing UI (`PoseAdjustToolbar`, `PoseBodyPicker`, `PosePartControls`) into panel sections
+- [x] **3.6** Remove `mannequin-inspector-panel` from `MannequinPlacementLayer` (or retire layer entirely)
+- [x] **3.7** Mobile drawer: add Mannequins section using same `PoseBlockPanel`
+- [x] **3.8** Match VideoGen styling — `control-panel`, `InspectorField`, `RangeSlider`, `VisualDropdown` patterns from existing panels
 
 ### Phase 4 — VideoGen compositor embed
 

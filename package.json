@@ -23,6 +23,14 @@
     "./types": {
       "types": "./types.ts",
       "default": "./types.ts"
+    },
+    "./PoseAdjustToolbar": {
+      "types": "./components/PoseAdjustToolbar.tsx",
+      "default": "./components/PoseAdjustToolbar.tsx"
+    },
+    "./poses": {
+      "types": "./lib/poses-export.ts",
+      "default": "./lib/poses-export.ts"
     }
   },
   "scripts": {
