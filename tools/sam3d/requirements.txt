@@ -1,0 +1,28 @@
+# SAM 3D Body mannequin generation pipeline
+#
+# Install this repo first (requires HuggingFace gated access to facebook/sam-3d-body-vith):
+#   git clone https://github.com/facebookresearch/sam-3d-body
+#   cd sam-3d-body && pip install -e .
+#
+# Then install the requirements below.
+
+# Core inference
+torch>=2.1.0
+torchvision>=0.16.0
+huggingface-hub>=0.24.0
+
+# Image processing
+opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# 3D mesh handling
+trimesh>=4.0.0
+scipy>=1.11.0
+
+# GLB/glTF direct export (used when Blender is unavailable)
+pygltflib>=1.16.0
+
+# Progress + utilities
+tqdm>=4.66.0
+pyrootutils>=1.0.4

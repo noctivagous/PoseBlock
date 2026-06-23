@@ -1,0 +1,355 @@
+#!/usr/bin/env python3
+"""
+SAM 3D Body mannequin generation pipeline for PoseBlock.
+
+For each of the six mannequin variants (female/adult, female/child, female/teen,
+male/adult, male/child, male/teen), this script:
+
+  1. Runs SAM 3D Body (facebook/sam-3d-body-vith) on the front-view PNG.
+  2. Saves the raw PLY mesh and MHR70 keypoints JSON to tools/sam3d/output/.
+  3. Invokes Blender in headless mode to build a Mixamo armature from the
+     keypoints, bind the mesh with automatic weights, and export an FBX.
+  4. Converts the FBX to GLB using tools/bin/fbx2glb.
+  5. Copies the final GLB to public/models/mannequins/<gender>/<age>/mannequin.glb.
+
+Usage:
+  python generate_mannequins.py [--blender /path/to/blender] [--device cuda]
+
+Skip flags (for re-running partial pipeline):
+  --skip-inference   Use cached PLY/keypoints from a previous run
+  --skip-blender     Use a cached FBX from a previous run
+
+See tools/sam3d/README.md for full setup instructions.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Optional, Tuple
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+
+REPO_ROOT    = Path(__file__).resolve().parents[2]
+TOOLS_DIR    = REPO_ROOT / "tools"
+SAM3D_DIR    = TOOLS_DIR / "sam3d"
+MODEL_IMAGES = SAM3D_DIR / "model-images" / "mannequins"
+OUTPUT_DIR   = SAM3D_DIR / "output"
+PUBLIC_MODELS = REPO_ROOT / "public" / "models" / "mannequins"
+FBX2GLB      = TOOLS_DIR / "bin" / "fbx2glb"
+BLENDER_SCRIPT = SAM3D_DIR / "blender_rig_export.py"
+
+VARIANTS = [
+    ("female", "adult"),
+    ("female", "child"),
+    ("female", "teen"),
+    ("male",   "adult"),
+    ("male",   "child"),
+    ("male",   "teen"),
+]
+
+# Primary view used for single-image inference.
+# Front-facing images give the best body pose estimates.
+PRIMARY_VIEW = "front.png"
+
+# ---------------------------------------------------------------------------
+# Step 1 — SAM 3D Body inference
+# ---------------------------------------------------------------------------
+
+def setup_estimator(hf_repo_id: str, device: Optional[str] = None):
+    """Load SAM 3D Body model from HuggingFace."""
+    import torch
+    from notebook.utils import setup_sam_3d_body
+
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Loading SAM 3D Body from {hf_repo_id!r} (device={device})...")
+    return setup_sam_3d_body(hf_repo_id=hf_repo_id, device=device)
+
+
+def run_inference(
+    estimator,
+    gender: str,
+    age: str,
+    out_dir: Path,
+) -> Optional[Tuple[Path, Path]]:
+    """
+    Run SAM 3D Body on the front-view image for one mannequin variant.
+
+    Returns (ply_path, kpts_path) or None if detection failed.
+    """
+    img_path = MODEL_IMAGES / gender / age / "standard" / PRIMARY_VIEW
+    if not img_path.exists():
+        print(f"  [SKIP] Image not found: {img_path}")
+        return None
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    import cv2
+    import numpy as np
+
+    img_bgr = cv2.imread(str(img_path))
+    if img_bgr is None:
+        print(f"  [ERROR] Could not read image: {img_path}")
+        return None
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+    print(f"  Inference on {img_path.relative_to(REPO_ROOT)} ...")
+    outputs = estimator.process_one_image(img_rgb)
+
+    if not outputs:
+        print(f"  [WARN] No person detected in {img_path.name}")
+        return None
+
+    # Use the first (and typically only) detected person
+    person = outputs[0]
+
+    # --- Save PLY mesh ---
+    from sam_3d_body.visualization.renderer import Renderer
+
+    LIGHT_BLUE = (0.65098039, 0.74117647, 0.85882353)
+    renderer = Renderer(focal_length=person["focal_length"], faces=estimator.faces)
+    tmesh = renderer.vertices_to_trimesh(
+        person["pred_vertices"], person["pred_cam_t"], LIGHT_BLUE
+    )
+    ply_path = out_dir / "mesh.ply"
+    tmesh.export(str(ply_path))
+
+    # --- Save MHR70 keypoints ---
+    kpts = person["pred_keypoints_3d"]
+    if hasattr(kpts, "tolist"):
+        kpts = kpts.tolist()
+    kpts_path = out_dir / "keypoints_mhr70.json"
+    with open(kpts_path, "w") as f:
+        json.dump({"keypoints_3d": kpts}, f, indent=2)
+
+    # --- Save full MHR params for reference ---
+    def _to_list(v):
+        return v.tolist() if hasattr(v, "tolist") else v
+
+    params = {
+        "body_pose_params": _to_list(person.get("body_pose_params", [])),
+        "hand_pose_params": _to_list(person.get("hand_pose_params", [])),
+        "shape_params":     _to_list(person.get("shape_params", [])),
+        "pred_cam_t":       _to_list(person["pred_cam_t"]),
+        "focal_length":     float(person["focal_length"]),
+        "bbox":             _to_list(person.get("bbox", [])),
+    }
+    with open(out_dir / "mhr_params.json", "w") as f:
+        json.dump(params, f, indent=2)
+
+    # --- Save overlay visualization for visual QC ---
+    from notebook.utils import visualize_sample_together
+    rend_img = visualize_sample_together(img_bgr, outputs, estimator.faces)
+    import cv2 as _cv2
+    import numpy as _np
+    _cv2.imwrite(str(out_dir / "qc_overlay.jpg"), rend_img.astype(_np.uint8))
+
+    print(f"  Saved PLY, keypoints, params, QC overlay → {out_dir.relative_to(REPO_ROOT)}/")
+    return ply_path, kpts_path
+
+
+# ---------------------------------------------------------------------------
+# Step 2 — Blender: build Mixamo rig + export FBX
+# ---------------------------------------------------------------------------
+
+def run_blender_rigging(
+    ply_path: Path,
+    kpts_path: Path,
+    fbx_path: Path,
+    blender_bin: str,
+) -> bool:
+    """Call Blender headless to rig the mesh and export FBX."""
+    cmd = [
+        blender_bin,
+        "--background",
+        "--python", str(BLENDER_SCRIPT),
+        "--",
+        "--ply",       str(ply_path),
+        "--keypoints", str(kpts_path),
+        "--output",    str(fbx_path),
+    ]
+    print(f"  Blender rigging → {fbx_path.name} ...")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  [ERROR] Blender exited {result.returncode}")
+        # Show last 3000 chars of stderr to avoid flooding the terminal
+        tail = (result.stderr or result.stdout or "")[-3000:]
+        print(f"  --- Blender stderr (tail) ---\n{tail}")
+        return False
+    # Surface any [blender_rig_export] lines from stdout
+    for line in result.stdout.splitlines():
+        if "blender_rig_export" in line or "Error" in line:
+            print(f"    {line}")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Step 3 — fbx2glb: FBX → GLB
+# ---------------------------------------------------------------------------
+
+def run_fbx2glb(fbx_path: Path, glb_path: Path) -> bool:
+    """Convert FBX to GLB using the bundled fbx2glb binary."""
+    if not FBX2GLB.exists():
+        print(f"  [ERROR] fbx2glb not found at {FBX2GLB}")
+        return False
+
+    cmd = [str(FBX2GLB), str(fbx_path), "--output", str(glb_path)]
+    print(f"  fbx2glb: {fbx_path.name} → {glb_path.name} ...")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  [ERROR] fbx2glb failed:\n{result.stderr or result.stdout}")
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Step 4 — deploy to public/models
+# ---------------------------------------------------------------------------
+
+def deploy_glb(glb_path: Path, gender: str, age: str) -> None:
+    dest_dir = PUBLIC_MODELS / gender / age
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / "mannequin.glb"
+    shutil.copy2(glb_path, dest)
+    print(f"  Deployed → {dest.relative_to(REPO_ROOT)}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Generate Mixamo-rigged GLB mannequins via SAM 3D Body",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    parser.add_argument(
+        "--hf-repo",
+        default="facebook/sam-3d-body-vith",
+        help="HuggingFace repo ID (default: facebook/sam-3d-body-vith)",
+    )
+    parser.add_argument(
+        "--blender",
+        default="blender",
+        help="Path to Blender 3.x/4.x executable (default: 'blender' in PATH)",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="PyTorch device override (e.g. 'cuda', 'cpu', 'mps')",
+    )
+    parser.add_argument(
+        "--variants",
+        nargs="+",
+        metavar="GENDER/AGE",
+        default=None,
+        help="Subset of variants to process, e.g. --variants female/adult male/teen",
+    )
+    parser.add_argument(
+        "--skip-inference",
+        action="store_true",
+        help="Skip SAM 3D Body inference; use cached PLY/keypoints in output/",
+    )
+    parser.add_argument(
+        "--skip-blender",
+        action="store_true",
+        help="Skip Blender rigging step; use cached FBX in output/",
+    )
+    parser.add_argument(
+        "--no-deploy",
+        action="store_true",
+        help="Do not copy final GLBs to public/models/mannequins/",
+    )
+    args = parser.parse_args()
+
+    # Resolve requested variants
+    variants = VARIANTS
+    if args.variants:
+        requested = set()
+        for v in args.variants:
+            parts = v.split("/")
+            if len(parts) == 2:
+                requested.add((parts[0], parts[1]))
+        variants = [(g, a) for g, a in VARIANTS if (g, a) in requested]
+        if not variants:
+            print(f"[ERROR] No valid variants matched: {args.variants}")
+            sys.exit(1)
+
+    # Load model once (unless skipping inference)
+    estimator = None
+    if not args.skip_inference:
+        estimator = setup_estimator(args.hf_repo, args.device)
+
+    success_count = 0
+    fail_count = 0
+
+    for gender, age in variants:
+        label = f"{gender}/{age}"
+        print(f"\n{'='*50}")
+        print(f"  Variant: {label}")
+        print(f"{'='*50}")
+
+        out_dir   = OUTPUT_DIR / gender / age
+        fbx_path  = out_dir / "mannequin.fbx"
+        glb_path  = out_dir / "mannequin.glb"
+
+        # ---- Step 1: Inference ----
+        if args.skip_inference:
+            ply_path  = out_dir / "mesh.ply"
+            kpts_path = out_dir / "keypoints_mhr70.json"
+            if not ply_path.exists() or not kpts_path.exists():
+                print(f"  [SKIP] Cached outputs not found for {label}")
+                fail_count += 1
+                continue
+            print(f"  Using cached PLY/keypoints in {out_dir.relative_to(REPO_ROOT)}/")
+        else:
+            result = run_inference(estimator, gender, age, out_dir)
+            if result is None:
+                fail_count += 1
+                continue
+            ply_path, kpts_path = result
+
+        # ---- Step 2: Blender rigging → FBX ----
+        if args.skip_blender:
+            if not fbx_path.exists():
+                print(f"  [SKIP] Cached FBX not found: {fbx_path}")
+                fail_count += 1
+                continue
+            print(f"  Using cached FBX: {fbx_path.name}")
+        else:
+            ok = run_blender_rigging(ply_path, kpts_path, fbx_path, args.blender)
+            if not ok:
+                fail_count += 1
+                continue
+
+        # ---- Step 3: FBX → GLB ----
+        ok = run_fbx2glb(fbx_path, glb_path)
+        if not ok:
+            fail_count += 1
+            continue
+
+        # ---- Step 4: Deploy ----
+        if not args.no_deploy:
+            deploy_glb(glb_path, gender, age)
+
+        success_count += 1
+
+    print(f"\n{'='*50}")
+    print(f"  Complete: {success_count} succeeded, {fail_count} failed")
+    print(f"{'='*50}")
+
+    if fail_count > 0:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
