@@ -312,5 +312,8 @@
       0,
       0.9998865
     ]
-  }
+  },
+  "name": "Female Start Walking",
+  "gender": "Female",
+  "poseType": "Walking"
 }

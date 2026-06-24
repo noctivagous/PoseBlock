@@ -318,5 +318,8 @@
       -1e-7,
       0.9995293
     ]
-  }
+  },
+  "name": "Male Reclining Relaxed With Arms Behind Head",
+  "gender": "Male",
+  "poseType": "Reclining"
 }

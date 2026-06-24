@@ -29,6 +29,30 @@ function toStoreInstance(ext: PoseBlockInstance): CharacterInstance {
   }
 }
 
+function instancesSignature(instances: PoseBlockInstance[] | undefined): string {
+  if (!instances || instances.length === 0) return '[]'
+  return JSON.stringify(
+    instances.map((inst) => ({
+      id: inst.id,
+      modelUrl: inst.modelUrl,
+      basePoseId: inst.basePoseId,
+      poseAdjustments: inst.poseAdjustments ?? [],
+      x: inst.x,
+      y: inst.y,
+      scale: inst.scale,
+      rotation: inst.rotation,
+      characterZ: inst.characterZ ?? 0,
+      characterRotationX: inst.characterRotationX ?? 0,
+      characterRotationY: inst.characterRotationY ?? inst.rotation,
+    })),
+  )
+}
+
+function selectedIdsSignature(ids: string[] | undefined): string {
+  if (!ids || ids.length === 0) return '[]'
+  return ids.join(',')
+}
+
 export function PoseBlockCompositor({
   className,
   backdropUrl,
@@ -36,8 +60,8 @@ export function PoseBlockCompositor({
   frameHeight,
   instances,
   selectedIds,
-  onSelect: _onSelect,
-  onInstanceChange: _onInstanceChange,
+  onSelect,
+  onInstanceChange,
   enableExport = true,
   embedMode = false,
   children,
@@ -45,6 +69,17 @@ export function PoseBlockCompositor({
   const set = useStore((s) => s.set)
   const hasSyncedInstancesRef = useRef(false)
   const hasSyncedSelectionRef = useRef(false)
+  const lastInstancesSigRef = useRef<string>('')
+  const lastSelectedSigRef = useRef<string>('')
+
+  // Register outward callbacks in the store so CharacterManipulator
+  // can call them on user interaction without causing render loops.
+  useEffect(() => {
+    set({
+      onInstanceChange: onInstanceChange ?? null,
+      onSelect: onSelect ?? null,
+    })
+  }, [onInstanceChange, onSelect, set])
 
   useEffect(() => {
     if (backdropUrl !== undefined) {
@@ -58,16 +93,26 @@ export function PoseBlockCompositor({
     }
   }, [frameWidth, frameHeight, set])
 
+  // Sync external instances INTO the store only when they meaningfully change.
   useEffect(() => {
     if (instances === undefined) return
+    const sig = instancesSignature(instances)
+    if (sig === lastInstancesSigRef.current) return
+    lastInstancesSigRef.current = sig
+
     const mapped = instances.map(toStoreInstance)
     if (mapped.length > 0) hasSyncedInstancesRef.current = true
     if (mapped.length === 0 && !hasSyncedInstancesRef.current) return
     set({ instances: mapped })
-  }, [instances, set, selectedIds])
+  }, [instances, set])
 
+  // Sync external selectedIds INTO the store only when they meaningfully change.
   useEffect(() => {
     if (selectedIds === undefined) return
+    const sig = selectedIdsSignature(selectedIds)
+    if (sig === lastSelectedSigRef.current) return
+    lastSelectedSigRef.current = sig
+
     if (selectedIds.length > 0) hasSyncedSelectionRef.current = true
     if (selectedIds.length === 0 && !hasSyncedSelectionRef.current) return
     set({ selectedIds })

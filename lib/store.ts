@@ -8,6 +8,7 @@ import {
   type CharacterInstance,
 } from '../lib/instances'
 import type { Pose } from '../lib/poses'
+import type { PoseBlockInstance } from '../types'
 
 export type InteractionMode = 'transform' | 'pose'
 export type PoseGizmoMode = 'legacy' | 'joint'
@@ -25,6 +26,10 @@ export type StoreState = {
   frameWidth: number
   frameHeight: number
   characterError: string | null
+  /** Outward callback — registered by PoseBlockCompositor, called by inner components on user interaction. */
+  onInstanceChange: ((id: string, patch: Partial<PoseBlockInstance>) => void) | null
+  /** Outward callback — registered by PoseBlockCompositor, called by inner components on selection change. */
+  onSelect: ((ids: string[]) => void) | null
   set: (partial: Partial<StoreState>) => void
   addInstance: (partial?: Partial<Pick<CharacterInstance, 'x' | 'y' | 'scale' | 'modelUrl' | 'basePoseId'>>) => string | null
   removeInstance: (id: string) => void
@@ -70,6 +75,8 @@ export const useStore = create<StoreState>((set, get) => ({
   frameWidth: 16,
   frameHeight: 9,
   characterError: null,
+  onInstanceChange: null,
+  onSelect: null,
   set: (partial) => set(partial),
 
   primarySelectedId: () => {
@@ -103,22 +110,50 @@ export const useStore = create<StoreState>((set, get) => ({
 
   updateInstance: (id, patch) => {
     set({ instances: updateInstanceById(get().instances, id, patch) })
+    // Notify host (VideoGen) of the change so mannequin state stays in sync.
+    const cb = get().onInstanceChange
+    if (cb) {
+      const inst = get().instances.find((i) => i.id === id)
+      if (inst) {
+        const outPatch: Partial<PoseBlockInstance> = {
+          x: inst.x,
+          y: inst.y,
+          scale: inst.scale,
+          rotation: inst.rotation,
+          characterZ: inst.characterZ,
+          characterRotationX: inst.characterRotationX,
+          characterRotationY: inst.characterRotationY,
+          basePoseId: inst.basePoseId,
+          poseAdjustments: inst.poseAdjustments,
+        }
+        cb(id, outPatch)
+      }
+    }
   },
 
   selectInstance: (id, options) => {
     const { selectedIds } = get()
+    let nextIds: string[]
     if (options?.shiftKey) {
       if (selectedIds.includes(id)) {
-        set({ selectedIds: selectedIds.filter((sid) => sid !== id) })
+        nextIds = selectedIds.filter((sid) => sid !== id)
       } else {
-        set({ selectedIds: [...selectedIds, id] })
+        nextIds = [...selectedIds, id]
       }
-      return
+      set({ selectedIds: nextIds })
+    } else {
+      nextIds = [id]
+      set({ selectedIds: nextIds, selectedBodyPart: null, selectedPoseBone: null })
     }
-    set({ selectedIds: [id], selectedBodyPart: null, selectedPoseBone: null })
+    const cb = get().onSelect
+    if (cb) cb(nextIds)
   },
 
-  clearSelection: () => set({ selectedIds: [], selectedBodyPart: null, selectedPoseBone: null }),
+  clearSelection: () => {
+    set({ selectedIds: [], selectedBodyPart: null, selectedPoseBone: null })
+    const cb = get().onSelect
+    if (cb) cb([])
+  },
 
   pushPoseOp: (op) => {
     set({
@@ -133,6 +168,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   pushPoseOps: (ops) => {
     if (ops.length === 0) return
+    const { selectedIds } = get()
     set({
       instances: mapSelectedInstances(get(), (inst) => {
         let next = inst.poseAdjustments
@@ -147,6 +183,13 @@ export const useStore = create<StoreState>((set, get) => ({
         }
       }),
     })
+    const cb = get().onInstanceChange
+    if (cb) {
+      for (const id of selectedIds) {
+        const inst = get().instances.find((i) => i.id === id)
+        if (inst) cb(id, { poseAdjustments: inst.poseAdjustments, basePoseId: inst.basePoseId })
+      }
+    }
   },
 
   undoPoseAdjustment: () => {

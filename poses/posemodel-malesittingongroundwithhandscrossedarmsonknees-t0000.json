@@ -318,5 +318,8 @@
       0,
       0.9993032
     ]
-  }
+  },
+  "name": "Male Sitting On Ground With Hands Crossed Arms On Knees",
+  "gender": "Male",
+  "poseType": "Ground Sit"
 }

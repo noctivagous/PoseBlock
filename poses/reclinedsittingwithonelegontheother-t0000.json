@@ -318,5 +318,8 @@
       1e-7,
       0.9996191
     ]
-  }
+  },
+  "name": "Reclined Sitting With One Leg On The Other",
+  "gender": "Either",
+  "poseType": "Reclined"
 }

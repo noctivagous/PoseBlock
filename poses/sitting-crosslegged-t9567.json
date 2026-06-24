@@ -4,7 +4,7 @@
   "availableClips": [
     "mixamo.com"
   ],
-  "sampleTime": 0,
+  "sampleTime": 9.566666603088379,
   "pose": {
     "Hips": [
       -0.1878852,
@@ -312,5 +312,8 @@
       -0.0426599,
       0.975237
     ]
-  }
+  },
+  "name": "Sitting Crosslegged",
+  "gender": "Either",
+  "poseType": "Cross-legged"
 }

@@ -391,5 +391,8 @@
       0,
       1
     ]
-  }
+  },
+  "name": "Mixamo Reference Bind",
+  "gender": "Either",
+  "poseType": "Reference"
 }

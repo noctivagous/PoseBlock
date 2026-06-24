@@ -288,5 +288,8 @@
       0,
       0.9943034
     ]
-  }
+  },
+  "name": "Male Walking",
+  "gender": "Male",
+  "poseType": "Walking"
 }

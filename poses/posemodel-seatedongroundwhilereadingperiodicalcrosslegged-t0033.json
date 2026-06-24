@@ -318,5 +318,8 @@
       0,
       0.9998539
     ]
-  }
+  },
+  "name": "Seated On Ground While Reading Periodical Crosslegged",
+  "gender": "Either",
+  "poseType": "Reading"
 }

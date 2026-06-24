@@ -270,5 +270,8 @@
       -0.0270869,
       0.9993282
     ]
-  }
+  },
+  "name": "Scanning Surroundings",
+  "gender": "Either",
+  "poseType": "Scanning"
 }

@@ -4,7 +4,7 @@
   "availableClips": [
     "mixamo.com"
   ],
-  "sampleTime": 0,
+  "sampleTime": 0.03333333507180214,
   "pose": {
     "Hips": [
       -0.3191253,
@@ -318,5 +318,8 @@
       0,
       0.9983952
     ]
-  }
+  },
+  "name": "Male Sitting Slouched",
+  "gender": "Male",
+  "poseType": "Slouched"
 }

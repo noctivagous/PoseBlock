@@ -5,5 +5,8 @@
     "mixamo.com"
   ],
   "sampleTime": 0.03333333507180214,
-  "pose": {}
+  "pose": {},
+  "name": "Y Bot Frame 10",
+  "gender": "Either",
+  "poseType": "Reference"
 }

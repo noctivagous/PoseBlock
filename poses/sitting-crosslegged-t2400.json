@@ -312,5 +312,8 @@
       -0.0425918,
       0.9759963
     ]
-  }
+  },
+  "name": "Sitting Crosslegged",
+  "gender": "Either",
+  "poseType": "Cross-legged"
 }

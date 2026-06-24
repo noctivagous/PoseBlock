@@ -396,5 +396,8 @@
       0,
       1
     ]
-  }
+  },
+  "name": "Y Bot Bind",
+  "gender": "Either",
+  "poseType": "Reference"
 }

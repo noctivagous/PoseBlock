@@ -4,7 +4,7 @@
   "availableClips": [
     "mixamo.com"
   ],
-  "sampleTime": 0,
+  "sampleTime": 0.03333333507180214,
   "pose": {
     "Hips": [
       -0.17569,
@@ -318,5 +318,8 @@
       -2e-7,
       0.9993032
     ]
-  }
+  },
+  "name": "Seated On Ground While Reading Periodical",
+  "gender": "Either",
+  "poseType": "Reading"
 }

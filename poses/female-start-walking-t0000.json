@@ -4,7 +4,7 @@
   "availableClips": [
     "mixamo.com"
   ],
-  "sampleTime": 1.8666666746139526,
+  "sampleTime": 0,
   "pose": {
     "Hips": [
       0.0266103,
@@ -312,5 +312,8 @@
       0,
       0.9996851
     ]
-  }
+  },
+  "name": "Female Start Walking",
+  "gender": "Female",
+  "poseType": "Walking"
 }

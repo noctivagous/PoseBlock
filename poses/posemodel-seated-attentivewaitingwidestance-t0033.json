@@ -318,5 +318,8 @@
       0,
       0.9989307
     ]
-  }
+  },
+  "name": "Seated Attentive Waiting Wide Stance",
+  "gender": "Either",
+  "poseType": "Attentive Waiting"
 }

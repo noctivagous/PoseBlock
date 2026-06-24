@@ -4,7 +4,7 @@
   "availableClips": [
     "mixamo.com"
   ],
-  "sampleTime": 0,
+  "sampleTime": 1.4,
   "pose": {
     "Hips": [
       0.0062188,
@@ -306,5 +306,8 @@
       0,
       0.9979979
     ]
-  }
+  },
+  "name": "Male Walking",
+  "gender": "Male",
+  "poseType": "Walking"
 }
