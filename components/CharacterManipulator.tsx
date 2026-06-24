@@ -20,6 +20,7 @@ import type { ControlRig, PinKey, Pins } from '../lib/instances'
 import { findSkeletonBone, lerpPose, MIXAMO_BONES, resetPose } from '../lib/poses'
 import { registerSelectionBounds } from '../lib/selectionBoundsRegistry'
 import { useStore } from '../lib/store'
+import { findPoseModelUrl, useAnimationPoseSample } from '../lib/useAnimationPoseSample'
 import { BoundingBoxGizmo } from './BoundingBoxGizmo'
 import { GroupSelectionGizmo } from './GroupSelectionGizmo'
 import { PoseBodyPicker } from './PoseBodyPicker'
@@ -59,6 +60,7 @@ function CharacterModelContent({
 }: CharacterModelContentProps) {
   const instance = useStore((s) => s.instances.find((i) => i.id === instanceId))
   const posePresets = useStore((s) => s.posePresets)
+  const poseModels = useStore((s) => s.poseModels)
   const frameWidth = useStore((s) => s.frameWidth)
   const frameHeight = useStore((s) => s.frameHeight)
   const interactionMode = useStore((s) => s.interactionMode)
@@ -84,14 +86,38 @@ function CharacterModelContent({
 
   const clonedScene = useMemo(() => SkeletonUtils.clone(source), [source])
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
+
+  const animationModelUrl = useMemo(() => {
+    if (!instance || instance.poseSourceMode !== 'animation') return null
+    return findPoseModelUrl(poseModels, instance.animationPoseModelId)
+  }, [instance, poseModels])
+
+  const useAnimation =
+    instance?.poseSourceMode === 'animation' && Boolean(animationModelUrl)
+
+  const { pose: animationPose } = useAnimationPoseSample(
+    animationModelUrl,
+    instance?.animationClip ?? null,
+    instance?.animationFrame ?? 0,
+    useAnimation,
+  )
+
   const composedPose = useMemo(() => {
     if (!instance) return null
-    const base = availablePoses[instance.basePoseId]
+    let base =
+      instance.poseSourceMode === 'animation'
+        ? animationPose
+        : availablePoses[instance.basePoseId]
+    if (!base || Object.keys(base).length === 0) base = availablePoses.t_pose
     if (!base) return null
     return composePose(base, instance.poseAdjustments)
-  }, [availablePoses, instance])
+  }, [availablePoses, instance, animationPose])
+
   const poseRigSignature = useMemo(() => {
     if (!instance) return ''
+    if (instance.poseSourceMode === 'animation') {
+      return `anim:${instance.animationPoseModelId}:${instance.animationClip}:${instance.animationFrame}:${JSON.stringify(instance.poseAdjustments)}`
+    }
     return `${instance.basePoseId}:${JSON.stringify(instance.poseAdjustments)}`
   }, [instance])
 

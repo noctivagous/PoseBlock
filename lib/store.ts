@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { BodyPartId } from '../lib/bodyParts'
 import type { CharacterModel } from '../lib/characterModels'
 import { appendPoseOp, type PoseOp } from '../lib/poseCompose'
+import type { PoseModel } from '../lib/poseModels'
 import {
   createDefaultControlRig,
   createDefaultIkBlend,
@@ -15,6 +16,7 @@ import {
   type PinKey,
   type Pins,
   type PinnedWorldPos,
+  type PoseSourceMode,
 } from '../lib/instances'
 import type { Pose } from '../lib/poses'
 import type { PoseBlockInstance } from '../types'
@@ -28,6 +30,7 @@ export type StoreState = {
   selectedIds: string[]
   characterModels: CharacterModel[]
   posePresets: Record<string, Pose>
+  poseModels: PoseModel[]
   interactionMode: InteractionMode
   poseGizmoMode: PoseGizmoMode
   mode: CharacterMode
@@ -67,6 +70,10 @@ export type StoreState = {
   redoPoseAdjustment: () => void
   resetPoseAdjustments: () => void
   setBasePoseId: (id: string) => void
+  setPoseSourceMode: (mode: PoseSourceMode) => void
+  setAnimationPoseModel: (id: string, defaultClip?: string | null) => void
+  setAnimationFrame: (frame: number) => void
+  setAnimationClip: (clip: string | null) => void
   setMode: (mode: CharacterMode) => void
   setControlRig: (update: Partial<ControlRig>) => void
   setPin: (key: PinKey, value: boolean) => void
@@ -107,6 +114,10 @@ function instanceChangePatch(inst: CharacterInstance): Partial<PoseBlockInstance
     characterRotationX: inst.characterRotationX,
     characterRotationY: inst.characterRotationY,
     basePoseId: inst.basePoseId,
+    poseSourceMode: inst.poseSourceMode,
+    animationPoseModelId: inst.animationPoseModelId,
+    animationClip: inst.animationClip,
+    animationFrame: inst.animationFrame,
     poseAdjustments: inst.poseAdjustments,
     controlRig: inst.controlRig,
     pins: inst.pins,
@@ -115,6 +126,17 @@ function instanceChangePatch(inst: CharacterInstance): Partial<PoseBlockInstance
   }
 }
 
+function resetPoseAdjustments(inst: CharacterInstance): CharacterInstance {
+  return {
+    ...inst,
+    poseAdjustments: [],
+    poseAdjustmentPast: [],
+    poseAdjustmentFuture: [],
+    controlRig: { ...inst.controlRig, initialized: false },
+    pins: createDefaultPins(),
+    pinnedWorldPos: createDefaultPinnedWorldPos(),
+  }
+}
 function notifyInstanceChange(
   cb: StoreState['onInstanceChange'],
   instances: CharacterInstance[],
@@ -132,6 +154,7 @@ export const useStore = create<StoreState>((set, get) => ({
   selectedIds: [],
   characterModels: [],
   posePresets: {},
+  poseModels: [],
   interactionMode: 'transform',
   poseGizmoMode: 'legacy',
   mode: 'preset',
@@ -306,19 +329,66 @@ export const useStore = create<StoreState>((set, get) => ({
 
   setBasePoseId: (id) => {
     set({
-      instances: mapSelectedInstances(get(), (inst) => ({
-        ...inst,
-        basePoseId: id,
-        poseAdjustments: [],
-        poseAdjustmentPast: [],
-        poseAdjustmentFuture: [],
-        controlRig: { ...inst.controlRig, initialized: false },
-        pins: createDefaultPins(),
-        pinnedWorldPos: createDefaultPinnedWorldPos(),
-      })),
+      instances: mapSelectedInstances(get(), (inst) =>
+        resetPoseAdjustments({
+          ...inst,
+          basePoseId: id,
+          poseSourceMode: 'preset',
+        }),
+      ),
       selectedBodyPart: null,
       selectedPoseBone: null,
     })
+  },
+
+  setPoseSourceMode: (mode) => {
+    set({
+      instances: mapSelectedInstances(get(), (inst) => ({ ...inst, poseSourceMode: mode })),
+    })
+    const { selectedIds } = get()
+    notifyInstanceChange(get().onInstanceChange, get().instances, selectedIds)
+  },
+
+  setAnimationPoseModel: (id, defaultClip = null) => {
+    set({
+      instances: mapSelectedInstances(get(), (inst) =>
+        resetPoseAdjustments({
+          ...inst,
+          poseSourceMode: 'animation',
+          animationPoseModelId: id,
+          animationClip: defaultClip,
+          animationFrame: 0,
+        }),
+      ),
+      selectedBodyPart: null,
+      selectedPoseBone: null,
+    })
+    const { selectedIds } = get()
+    notifyInstanceChange(get().onInstanceChange, get().instances, selectedIds)
+  },
+
+  setAnimationFrame: (frame) => {
+    const nextFrame = Math.max(0, Math.floor(frame))
+    set({
+      instances: mapSelectedInstances(get(), (inst) => ({
+        ...inst,
+        animationFrame: nextFrame,
+      })),
+    })
+    const { selectedIds } = get()
+    notifyInstanceChange(get().onInstanceChange, get().instances, selectedIds)
+  },
+
+  setAnimationClip: (clip) => {
+    set({
+      instances: mapSelectedInstances(get(), (inst) => ({
+        ...inst,
+        animationClip: clip,
+        animationFrame: 0,
+      })),
+    })
+    const { selectedIds } = get()
+    notifyInstanceChange(get().onInstanceChange, get().instances, selectedIds)
   },
 
   setMode: (mode) => set({ mode }),

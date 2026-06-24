@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { CharacterModel } from '../lib/characterModels'
+import type { PoseModel } from '../lib/poseModels'
 import { getAllPosePresets } from '../lib/posePresets'
 import type { Pose } from '../lib/poses'
 import { useStore } from '../lib/store'
@@ -41,6 +42,17 @@ export function usePoseBlockBootstrap() {
       })
       .catch(() => {
         // Keep built-in fallback presets when external JSON presets fail to load.
+      })
+  }, [set])
+
+  useEffect(() => {
+    fetch('/api/pose-models')
+      .then((res) => res.json())
+      .then((models: PoseModel[]) => {
+        set({ poseModels: models })
+      })
+      .catch(() => {
+        set({ poseModels: [] })
       })
   }, [set])
 }

@@ -26,6 +26,8 @@ export type IkBlend = {
   rightLeg: number
 }
 
+export type PoseSourceMode = 'preset' | 'animation'
+
 export function createDefaultControlRig(): ControlRig {
   return {
     initialized: false,
@@ -70,6 +72,10 @@ export type CharacterInstance = {
   id: string
   modelUrl: string
   basePoseId: string
+  poseSourceMode: PoseSourceMode
+  animationPoseModelId: string
+  animationClip: string | null
+  animationFrame: number
   poseAdjustments: PoseOp[]
   poseAdjustmentPast: PoseOp[][]
   poseAdjustmentFuture: PoseOp[][]
@@ -102,6 +108,10 @@ export function createInstance(
     id: createInstanceId(),
     modelUrl,
     basePoseId: partial?.basePoseId ?? 't_pose',
+    poseSourceMode: 'preset',
+    animationPoseModelId: '',
+    animationClip: null,
+    animationFrame: 0,
     poseAdjustments: [],
     poseAdjustmentPast: [],
     poseAdjustmentFuture: [],
@@ -124,6 +134,10 @@ export function instanceToPoseBlockExport(instance: CharacterInstance): PoseBloc
     id: instance.id,
     modelUrl: instance.modelUrl,
     basePoseId: instance.basePoseId,
+    poseSourceMode: instance.poseSourceMode,
+    animationPoseModelId: instance.animationPoseModelId,
+    animationClip: instance.animationClip,
+    animationFrame: instance.animationFrame,
     poseAdjustments: instance.poseAdjustments,
     x: instance.x,
     y: instance.y,

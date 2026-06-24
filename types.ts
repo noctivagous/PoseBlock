@@ -6,6 +6,10 @@ export type PoseBlockInstance = {
   id: string
   modelUrl: string
   basePoseId: string
+  poseSourceMode?: 'preset' | 'animation'
+  animationPoseModelId?: string
+  animationClip?: string | null
+  animationFrame?: number
   poseAdjustments?: PoseOp[]
   /** Normalized feet-anchor X (0 = left, 1 = right). */
   x: number

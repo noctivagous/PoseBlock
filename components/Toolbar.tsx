@@ -1,20 +1,16 @@
 'use client'
 
-import { getAllPosePresets } from '../lib/posePresets'
 import { useStore } from '../lib/store'
-import { useMemo } from 'react'
+import { PoseSourceControls } from './PoseSourceControls'
 
 export function Toolbar() {
   const instances = useStore((s) => s.instances)
   const selectedIds = useStore((s) => s.selectedIds)
   const characterModels = useStore((s) => s.characterModels)
-  const posePresets = useStore((s) => s.posePresets)
   const updateInstance = useStore((s) => s.updateInstance)
-  const setBasePoseId = useStore((s) => s.setBasePoseId)
 
   const primaryId = selectedIds[0] ?? null
   const primary = instances.find((i) => i.id === primaryId)
-  const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
 
   const characterId =
     characterModels.find((c) => c.url === primary?.modelUrl)?.id ??
@@ -22,7 +18,6 @@ export function Toolbar() {
     ''
 
   const selectedCount = selectedIds.length
-  const adjustmentCount = primary?.poseAdjustments.length ?? 0
 
   const setModelForSelected = (url: string) => {
     for (const id of selectedIds) {
@@ -61,23 +56,7 @@ export function Toolbar() {
         </select>
       </label>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-xs text-white/60">Base pose</span>
-        <select
-          className="rounded bg-zinc-800 px-2 py-1.5 text-white"
-          value={primary.basePoseId}
-          onChange={(e) => setBasePoseId(e.target.value)}
-        >
-          {Object.keys(availablePoses).map((pose) => (
-            <option key={pose} value={pose}>
-              {pose}
-            </option>
-          ))}
-        </select>
-        <span className="block min-h-4 text-xs text-amber-300/80">
-          {adjustmentCount > 0 ? `${adjustmentCount} adjustment(s) on primary` : null}
-        </span>
-      </label>
+      <PoseSourceControls />
 
       <p className="text-xs text-white/50">
         Click to select. Shift+click for multi-select. Drag to move; gizmos edit the primary
