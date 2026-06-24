@@ -54,6 +54,11 @@ export type StoreState = {
   addInstance: (partial?: Partial<Pick<CharacterInstance, 'x' | 'y' | 'scale' | 'modelUrl' | 'basePoseId'>>) => string | null
   removeInstance: (id: string) => void
   updateInstance: (id: string, patch: Partial<CharacterInstance>) => void
+  updateSelectedInstances: (
+    patch:
+      | Partial<CharacterInstance>
+      | ((instance: CharacterInstance) => Partial<CharacterInstance>),
+  ) => void
   selectInstance: (id: string, options?: { shiftKey?: boolean }) => void
   clearSelection: () => void
   pushPoseOp: (op: PoseOp) => void
@@ -90,6 +95,36 @@ function updateInstanceById(
   patch: Partial<CharacterInstance>,
 ): CharacterInstance[] {
   return instances.map((inst) => (inst.id === id ? { ...inst, ...patch } : inst))
+}
+
+function instanceChangePatch(inst: CharacterInstance): Partial<PoseBlockInstance> {
+  return {
+    x: inst.x,
+    y: inst.y,
+    scale: inst.scale,
+    rotation: inst.rotation,
+    characterZ: inst.characterZ,
+    characterRotationX: inst.characterRotationX,
+    characterRotationY: inst.characterRotationY,
+    basePoseId: inst.basePoseId,
+    poseAdjustments: inst.poseAdjustments,
+    controlRig: inst.controlRig,
+    pins: inst.pins,
+    pinnedWorldPos: inst.pinnedWorldPos,
+    ikBlend: inst.ikBlend,
+  }
+}
+
+function notifyInstanceChange(
+  cb: StoreState['onInstanceChange'],
+  instances: CharacterInstance[],
+  ids: string[],
+): void {
+  if (!cb) return
+  for (const id of ids) {
+    const inst = instances.find((i) => i.id === id)
+    if (inst) cb(id, instanceChangePatch(inst))
+  }
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -150,29 +185,22 @@ export const useStore = create<StoreState>((set, get) => ({
 
   updateInstance: (id, patch) => {
     set({ instances: updateInstanceById(get().instances, id, patch) })
-    // Notify host (VideoGen) of the change so mannequin state stays in sync.
-    const cb = get().onInstanceChange
-    if (cb) {
-      const inst = get().instances.find((i) => i.id === id)
-      if (inst) {
-        const outPatch: Partial<PoseBlockInstance> = {
-          x: inst.x,
-          y: inst.y,
-          scale: inst.scale,
-          rotation: inst.rotation,
-          characterZ: inst.characterZ,
-          characterRotationX: inst.characterRotationX,
-          characterRotationY: inst.characterRotationY,
-          basePoseId: inst.basePoseId,
-          poseAdjustments: inst.poseAdjustments,
-          controlRig: inst.controlRig,
-          pins: inst.pins,
-          pinnedWorldPos: inst.pinnedWorldPos,
-          ikBlend: inst.ikBlend,
-        }
-        cb(id, outPatch)
-      }
-    }
+    const inst = get().instances.find((i) => i.id === id)
+    if (inst) notifyInstanceChange(get().onInstanceChange, get().instances, [id])
+  },
+
+  updateSelectedInstances: (patchOrFn) => {
+    const { instances, selectedIds } = get()
+    const selected = new Set(selectedIds)
+    if (selected.size === 0) return
+
+    const next = instances.map((inst) => {
+      if (!selected.has(inst.id)) return inst
+      const patch = typeof patchOrFn === 'function' ? patchOrFn(inst) : patchOrFn
+      return Object.keys(patch).length > 0 ? { ...inst, ...patch } : inst
+    })
+    set({ instances: next })
+    notifyInstanceChange(get().onInstanceChange, next, selectedIds)
   },
 
   selectInstance: (id, options) => {

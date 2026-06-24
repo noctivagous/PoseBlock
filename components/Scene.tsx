@@ -5,6 +5,7 @@ import { OrthographicCamera } from '@react-three/drei'
 import { Suspense, useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { VIEW_HEIGHT } from '../lib/sceneConstants'
+import { useStore } from '../lib/store'
 import { CharacterManipulatorLayer } from './CharacterManipulator'
 import { ExportRegistrar } from './ExportRegistrar'
 
@@ -38,12 +39,17 @@ function FrameCamera() {
 }
 
 export function Scene({ enableExport = true }: SceneProps) {
+  const clearSelection = useStore((s) => s.clearSelection)
+
   return (
     <Canvas
       className="h-full w-full"
       gl={{ alpha: true, preserveDrawingBuffer: true, antialias: true }}
       onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
       style={{ background: 'transparent' }}
+      onPointerMissed={(event) => {
+        if (event.button === 0) clearSelection()
+      }}
     >
       <FrameCamera />
       <ambientLight intensity={0.6} />

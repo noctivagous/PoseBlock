@@ -1,10 +1,12 @@
 'use client'
 
-import { useRef } from 'react'
 import { Html } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
+import { useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { dollyAnchor } from '../lib/characterTransform'
 import { clampMannequinScale } from '../lib/framing'
+import type { CharacterInstance } from '../lib/instances'
 import { useStore } from '../lib/store'
 
 const ROT_STEP = 15
@@ -37,6 +39,113 @@ function GizmoBtn({
   )
 }
 
+export type TransformGizmoControlsProps = {
+  size?: THREE.Vector3
+  /** When set, anchor positions follow this ref each frame (group selection). */
+  sizeRef?: React.RefObject<THREE.Vector3>
+  rotateLeft: () => void
+  rotateRight: () => void
+  dollyIn: () => void
+  dollyOut: () => void
+  pitchUp: () => void
+  pitchDown: () => void
+  onScalePointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void
+  onScalePointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void
+  endScaleDrag: (e: React.PointerEvent<HTMLButtonElement>) => void
+}
+
+const GIZMO_PAD = 0.18
+
+function updateGizmoAnchors(
+  size: THREE.Vector3,
+  top: THREE.Group | null,
+  topRight: THREE.Group | null,
+  bottom: THREE.Group | null,
+) {
+  const halfX = size.x / 2
+  const halfY = size.y / 2
+  top?.position.set(0, halfY + GIZMO_PAD * 1.6, 0)
+  topRight?.position.set(halfX + GIZMO_PAD, halfY + GIZMO_PAD * 1.2, 0)
+  bottom?.position.set(0, -halfY - GIZMO_PAD, 0)
+}
+
+export function TransformGizmoControls({
+  size,
+  sizeRef,
+  rotateLeft,
+  rotateRight,
+  dollyIn,
+  dollyOut,
+  pitchUp,
+  pitchDown,
+  onScalePointerDown,
+  onScalePointerMove,
+  endScaleDrag,
+}: TransformGizmoControlsProps) {
+  const topRef = useRef<THREE.Group>(null)
+  const topRightRef = useRef<THREE.Group>(null)
+  const bottomRef = useRef<THREE.Group>(null)
+
+  useLayoutEffect(() => {
+    if (size) updateGizmoAnchors(size, topRef.current, topRightRef.current, bottomRef.current)
+  }, [size])
+
+  useFrame(() => {
+    if (sizeRef?.current) {
+      updateGizmoAnchors(sizeRef.current, topRef.current, topRightRef.current, bottomRef.current)
+    }
+  })
+
+  return (
+    <>
+      <group ref={topRef}>
+        <Html center style={{ pointerEvents: 'auto' }}>
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex gap-1">
+              <GizmoBtn label="↺" title="Rotate left" onClick={rotateLeft} />
+              <GizmoBtn label="↻" title="Rotate right" onClick={rotateRight} />
+            </div>
+            <div className="flex gap-1">
+              <GizmoBtn label="↑" title="Move closer (larger)" onClick={dollyIn} />
+              <GizmoBtn label="↓" title="Move farther (smaller)" onClick={dollyOut} />
+            </div>
+          </div>
+        </Html>
+      </group>
+
+      <group ref={topRightRef}>
+        <Html style={{ pointerEvents: 'auto' }}>
+          <div className="-translate-x-full -translate-y-full">
+            <button
+              type="button"
+              title="Drag up/down to scale"
+              className="rounded border border-cyan-300/80 bg-cyan-900/80 px-1.5 py-0.5 text-[9px] leading-none text-cyan-100 shadow hover:bg-cyan-800/90"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onScalePointerDown(e)
+              }}
+              onPointerMove={onScalePointerMove}
+              onPointerUp={endScaleDrag}
+              onPointerCancel={endScaleDrag}
+            >
+              drag-scale
+            </button>
+          </div>
+        </Html>
+      </group>
+
+      <group ref={bottomRef}>
+        <Html center style={{ pointerEvents: 'auto' }}>
+          <div className="flex gap-1">
+            <GizmoBtn label="P+" title="Pitch toward camera" onClick={pitchUp} />
+            <GizmoBtn label="P-" title="Pitch feet toward camera" onClick={pitchDown} />
+          </div>
+        </Html>
+      </group>
+    </>
+  )
+}
+
 type BoundingBoxGizmoProps = {
   instanceId: string
   size: THREE.Vector3
@@ -52,11 +161,7 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
 
   if (!instance) return null
 
-  const patch = (partial: Parameters<typeof updateInstance>[1]) =>
-    updateInstance(instanceId, partial)
-
-  const halfY = size.y / 2
-  const pad = 0.18
+  const patch = (partial: Partial<CharacterInstance>) => updateInstance(instanceId, partial)
 
   const onScalePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation()
@@ -95,85 +200,34 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
         />
       </mesh>
 
-      <Html position={[0, halfY + pad * 1.6, 0]} center style={{ pointerEvents: 'auto' }}>
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex gap-1">
-            <GizmoBtn
-              label="↺"
-              title="Rotate left"
-              onClick={() => patch({ rotation: instance.rotation - ROT_STEP })}
-            />
-            <GizmoBtn
-              label="↻"
-              title="Rotate right"
-              onClick={() => patch({ rotation: instance.rotation + ROT_STEP })}
-            />
-          </div>
-          <div className="flex gap-1">
-            <GizmoBtn
-              label="↑"
-              title="Move closer (larger)"
-              onClick={() =>
-                patch(
-                  dollyAnchor({ scale: instance.scale }, instance.characterZ, 1),
-                )
-              }
-            />
-            <GizmoBtn
-              label="↓"
-              title="Move farther (smaller)"
-              onClick={() =>
-                patch(
-                  dollyAnchor({ scale: instance.scale }, instance.characterZ, -1),
-                )
-              }
-            />
-          </div>
-        </div>
-      </Html>
-
-      <Html position={[0, -halfY - pad, 0]} center style={{ pointerEvents: 'auto' }}>
-        <div className="flex items-center gap-1">
-          <GizmoBtn
-            label="P+"
-            title="Pitch toward camera"
-            onClick={() =>
-              patch({
-                characterRotationX: clamp(
-                  instance.characterRotationX + PITCH_STEP,
-                  -MAX_PITCH,
-                  MAX_PITCH,
-                ),
-              })
-            }
-          />
-          <GizmoBtn
-            label="P-"
-            title="Pitch feet toward camera"
-            onClick={() =>
-              patch({
-                characterRotationX: clamp(
-                  instance.characterRotationX - PITCH_STEP,
-                  -MAX_PITCH,
-                  MAX_PITCH,
-                ),
-              })
-            }
-          />
-          <button
-            type="button"
-            title="Drag up/down to scale"
-            className="flex h-5 w-5 items-center justify-center rounded border border-cyan-300/80 bg-cyan-900/80 text-[10px] leading-none text-cyan-100 shadow hover:bg-cyan-800/90"
-            onPointerDown={onScalePointerDown}
-            onPointerMove={onScalePointerMove}
-            onPointerUp={endScaleDrag}
-            onPointerCancel={endScaleDrag}
-          >
-            S
-          </button>
-          <span className="pointer-events-none select-none text-[10px] text-sky-200">scale</span>
-        </div>
-      </Html>
+      <TransformGizmoControls
+        size={size}
+        rotateLeft={() => patch({ rotation: instance.rotation - ROT_STEP })}
+        rotateRight={() => patch({ rotation: instance.rotation + ROT_STEP })}
+        dollyIn={() => patch(dollyAnchor({ scale: instance.scale }, instance.characterZ, 1))}
+        dollyOut={() => patch(dollyAnchor({ scale: instance.scale }, instance.characterZ, -1))}
+        pitchUp={() =>
+          patch({
+            characterRotationX: clamp(
+              instance.characterRotationX + PITCH_STEP,
+              -MAX_PITCH,
+              MAX_PITCH,
+            ),
+          })
+        }
+        pitchDown={() =>
+          patch({
+            characterRotationX: clamp(
+              instance.characterRotationX - PITCH_STEP,
+              -MAX_PITCH,
+              MAX_PITCH,
+            ),
+          })
+        }
+        onScalePointerDown={onScalePointerDown}
+        onScalePointerMove={onScalePointerMove}
+        endScaleDrag={endScaleDrag}
+      />
     </group>
   )
 }

@@ -18,8 +18,10 @@ import { composePose } from '../lib/poseCompose'
 import { getAllPosePresets } from '../lib/posePresets'
 import type { ControlRig, PinKey, Pins } from '../lib/instances'
 import { findSkeletonBone, lerpPose, MIXAMO_BONES, resetPose } from '../lib/poses'
+import { registerSelectionBounds } from '../lib/selectionBoundsRegistry'
 import { useStore } from '../lib/store'
 import { BoundingBoxGizmo } from './BoundingBoxGizmo'
+import { GroupSelectionGizmo } from './GroupSelectionGizmo'
 import { PoseBodyPicker } from './PoseBodyPicker'
 import { PoseCylinderGizmo } from './PoseCylinderGizmo'
 import { PoseJointGizmo } from './PoseJointGizmo'
@@ -67,6 +69,7 @@ function CharacterModelContent({
   const setInstancePin = useStore((s) => s.setInstancePin)
   const setInstancePinnedWorldPos = useStore((s) => s.setInstancePinnedWorldPos)
   const selectInstance = useStore((s) => s.selectInstance)
+  const selectedCount = useStore((s) => s.selectedIds.length)
   const set = useStore((s) => s.set)
 
   const skeletonRef = useRef<THREE.Skeleton | null>(null)
@@ -424,20 +427,24 @@ function CharacterModelContent({
           <primitive object={clonedScene} />
           {isSelected && (
             <mesh
+              ref={(node) => registerSelectionBounds(instanceId, node)}
               position={[fit.center.x, fit.center.y, fit.center.z]}
               scale={[fit.size.x, fit.size.y, fit.size.z]}
             >
               <boxGeometry args={[1, 1, 1]} />
               <meshBasicMaterial
-                color={isPrimary ? '#fbbf24' : '#38bdf8'}
+                color={selectedCount === 1 && isPrimary ? '#fbbf24' : '#38bdf8'}
                 wireframe
                 transparent
-                opacity={0.35}
+                opacity={selectedCount === 1 ? 0.35 : 0.25}
                 depthTest={false}
               />
             </mesh>
           )}
-          {isPrimary && mode !== 'controlRig' && interactionMode === 'transform' && (
+          {isSelected &&
+            selectedCount === 1 &&
+            mode !== 'controlRig' &&
+            interactionMode === 'transform' && (
             <BoundingBoxGizmo instanceId={instanceId} size={fit.size} center={fit.center} />
           )}
           {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'legacy' && (
@@ -666,6 +673,7 @@ export function CharacterManipulatorLayer() {
           isPrimary={inst.id === primaryId}
         />
       ))}
+      <GroupSelectionGizmo />
     </>
   )
 }
