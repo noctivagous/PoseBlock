@@ -225,7 +225,10 @@ function CharacterModelContent({
       <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
         <primitive object={clonedScene} />
         {isSelected && (
-          <mesh scale={[fit.size.x, fit.size.y, fit.size.z]}>
+          <mesh
+            position={[fit.center.x, fit.center.y, fit.center.z]}
+            scale={[fit.size.x, fit.size.y, fit.size.z]}
+          >
             <boxGeometry args={[1, 1, 1]} />
             <meshBasicMaterial
               color={isPrimary ? '#fbbf24' : '#38bdf8'}

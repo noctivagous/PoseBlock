@@ -93,7 +93,7 @@ export const POSE_JOINT_LIMITS: Array<{
     pattern: /Leg/i,
     constraint: {
       enabled: { x: true, y: true, z: true },
-      limitsDeg: { x: limit(-5, 150), y: limit(-15, 15), z: limit(-10, 10) },
+      limitsDeg: { x: limit(-150, 5), y: limit(-15, 15), z: limit(-10, 10) },
     },
   },
   {

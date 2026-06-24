@@ -72,6 +72,8 @@ function PartPickerSphere({
     pointerId: number
     startX: number
     startY: number
+    lastX: number
+    lastY: number
     dragging: boolean
   } | null>(null)
 
@@ -94,6 +96,8 @@ function PartPickerSphere({
           pointerId: e.pointerId,
           startX: e.clientX,
           startY: e.clientY,
+          lastX: e.clientX,
+          lastY: e.clientY,
           dragging: false,
         }
         ;(e.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(
@@ -103,21 +107,19 @@ function PartPickerSphere({
       onPointerMove={(e: ThreeEvent<PointerEvent>) => {
         const drag = dragStateRef.current
         if (!drag || drag.pointerId !== e.pointerId) return
-        const dx = e.clientX - drag.startX
-        const dy = e.clientY - drag.startY
+        const dx = e.clientX - drag.lastX
+        const dy = e.clientY - drag.lastY
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           drag.dragging = true
+          drag.lastX = e.clientX
+          drag.lastY = e.clientY
+          onDragAdjust(partId, dx, dy)
         }
       }}
       onPointerUp={(e: ThreeEvent<PointerEvent>) => {
         const drag = dragStateRef.current
         if (!drag || drag.pointerId !== e.pointerId) return
         e.stopPropagation()
-        const dx = e.clientX - drag.startX
-        const dy = e.clientY - drag.startY
-        if (drag.dragging) {
-          onDragAdjust(partId, dx, dy)
-        }
         dragStateRef.current = null
         ;(e.target as { releasePointerCapture?: (id: number) => void }).releasePointerCapture?.(
           e.pointerId

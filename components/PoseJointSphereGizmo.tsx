@@ -1,7 +1,7 @@
 'use client'
 
 import { TransformControls } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { PoseOp } from '../lib/poseCompose'
@@ -15,6 +15,7 @@ import { useStore } from '../lib/store'
 
 const RAD2DEG = 180 / Math.PI
 const MIN_COMMIT_DEGREES = 0.1
+const DRAG_TO_DEGREES = 0.35
 const JOINT_NAME_RE =
   /Hips|Spine|Chest|Neck|Head|Shoulder|Arm|ForeArm|Hand|UpLeg|Leg|Foot|Toe|Thumb|Index|Middle|Ring|Pinky/i
 
@@ -43,14 +44,22 @@ function deltaToOps(delta: THREE.Quaternion, bone: string): PoseOp[] {
 
 function JointHandle({
   bone,
+  boneName,
   selected,
   radius,
   onSelect,
+  onDragRotateStart,
+  onDragRotate,
+  onDragRotateEnd,
 }: {
   bone: THREE.Bone
+  boneName: string
   selected: boolean
   radius: number
   onSelect: () => void
+  onDragRotateStart: (boneName: string, e: ThreeEvent<PointerEvent>) => void
+  onDragRotate: (boneName: string, e: ThreeEvent<PointerEvent>) => void
+  onDragRotateEnd: (boneName: string, e: ThreeEvent<PointerEvent>) => void
 }) {
   const meshRef = useRef<THREE.Mesh>(null)
   const worldPosRef = useRef(new THREE.Vector3())
@@ -70,6 +79,16 @@ function JointHandle({
       onPointerDown={(e) => {
         e.stopPropagation()
         onSelect()
+        onDragRotateStart(boneName, e)
+      }}
+      onPointerMove={(e) => {
+        onDragRotate(boneName, e)
+      }}
+      onPointerUp={(e) => {
+        onDragRotateEnd(boneName, e)
+      }}
+      onPointerCancel={(e) => {
+        onDragRotateEnd(boneName, e)
       }}
       onClick={(e) => {
         e.stopPropagation()
@@ -101,17 +120,12 @@ export function PoseJointSphereGizmo({
   const pushPoseOps = useStore((s) => s.pushPoseOps)
   const set = useStore((s) => s.set)
 
-  const helperRef = useRef<THREE.Group>(null)
   const draggingRef = useRef(false)
   const startBoneQuatRef = useRef(new THREE.Quaternion())
-  const startHelperQuatRef = useRef(new THREE.Quaternion())
   const constrainedDeltaRef = useRef(new THREE.Quaternion())
   const selectedBoneRef = useRef<THREE.Bone | null>(null)
   const selectedConstraintRef = useRef<JointConstraint>(DEFAULT_JOINT_CONSTRAINT)
-  const worldPosRef = useRef(new THREE.Vector3())
-  const worldQuatRef = useRef(new THREE.Quaternion())
-  const parentQuatRef = useRef(new THREE.Quaternion())
-  const localQuatRef = useRef(new THREE.Quaternion())
+  const dragRef = useRef<{ pointerId: number; boneName: string; startX: number; startY: number } | null>(null)
 
   const joints = useMemo(() => {
     return skeleton.bones.filter((bone) => {
@@ -150,31 +164,67 @@ export function PoseJointSphereGizmo({
     }
   }, [selectedPoseBone, selectedBone, set])
 
-  useFrame(() => {
-    const helper = helperRef.current
-    const bone = selectedBoneRef.current
-    if (!helper || !bone || draggingRef.current) return
-
-    bone.getWorldPosition(worldPosRef.current)
-    helper.parent?.worldToLocal(worldPosRef.current)
-    helper.position.copy(worldPosRef.current)
-
-    bone.getWorldQuaternion(worldQuatRef.current)
-    if (helper.parent) {
-      helper.parent.getWorldQuaternion(parentQuatRef.current)
-      localQuatRef.current
-        .copy(parentQuatRef.current)
-        .invert()
-        .multiply(worldQuatRef.current)
-      helper.quaternion.copy(localQuatRef.current)
-    } else {
-      helper.quaternion.copy(worldQuatRef.current)
-    }
-  })
-
   if (interactionMode !== 'pose') return null
 
   const localRadiusScale = fitScale > 0 ? 1 / fitScale : 1
+
+  const beginSphereDrag = (boneName: string, e: ThreeEvent<PointerEvent>) => {
+    const bone = joints.find((b) => canonicalBoneName(b.name) === boneName)
+    if (!bone) return
+    e.stopPropagation()
+    dragRef.current = {
+      pointerId: e.pointerId,
+      boneName,
+      startX: e.clientX,
+      startY: e.clientY,
+    }
+    draggingRef.current = true
+    selectedBoneRef.current = bone
+    selectedConstraintRef.current = constraintForBone(boneName)
+    startBoneQuatRef.current.copy(bone.quaternion)
+    constrainedDeltaRef.current.identity()
+    ;(e.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(e.pointerId)
+  }
+
+  const moveSphereDrag = (boneName: string, e: ThreeEvent<PointerEvent>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== e.pointerId || drag.boneName !== boneName) return
+    const bone = selectedBoneRef.current
+    if (!bone) return
+    e.stopPropagation()
+
+    const dx = e.clientX - drag.startX
+    const dy = e.clientY - drag.startY
+    const constraint = selectedConstraintRef.current
+
+    const x = constraint.enabled.x
+      ? clamp(dy * DRAG_TO_DEGREES, constraint.limitsDeg.x.min, constraint.limitsDeg.x.max)
+      : 0
+    const y = constraint.enabled.y
+      ? clamp(dx * DRAG_TO_DEGREES, constraint.limitsDeg.y.min, constraint.limitsDeg.y.max)
+      : 0
+    const z = 0
+
+    const constrainedDelta = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(x / RAD2DEG, y / RAD2DEG, z / RAD2DEG, 'XYZ'),
+    )
+    constrainedDeltaRef.current.copy(constrainedDelta)
+    bone.quaternion.copy(startBoneQuatRef.current).multiply(constrainedDelta).normalize()
+    updateSkeleton(skeleton)
+  }
+
+  const endSphereDrag = (boneName: string, e: ThreeEvent<PointerEvent>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== e.pointerId || drag.boneName !== boneName) return
+    e.stopPropagation()
+    draggingRef.current = false
+    dragRef.current = null
+
+    const ops = deltaToOps(constrainedDeltaRef.current, boneName)
+    pushPoseOps(ops)
+
+    ;(e.target as { releasePointerCapture?: (id: number) => void }).releasePointerCapture?.(e.pointerId)
+  }
 
   return (
     <group>
@@ -184,90 +234,88 @@ export function PoseJointSphereGizmo({
           <JointHandle
             key={bone.uuid}
             bone={bone}
+            boneName={name}
             radius={jointRadius(name) * localRadiusScale}
             selected={selectedPoseBone === name}
             onSelect={() => set({ selectedPoseBone: name, selectedBodyPart: null })}
+            onDragRotateStart={beginSphereDrag}
+            onDragRotate={moveSphereDrag}
+            onDragRotateEnd={endSphereDrag}
           />
         )
       })}
 
       {selectedBone && (
-        <group ref={helperRef}>
-          <TransformControls
-            object={helperRef as unknown as { current: THREE.Object3D }}
-            mode="rotate"
-            space="local"
-            size={0.45}
-            onMouseDown={() => {
-              const bone = selectedBoneRef.current
-              const helper = helperRef.current
-              if (!helper) return
-              if (!bone) return
-              draggingRef.current = true
-              startBoneQuatRef.current.copy(bone.quaternion)
-              startHelperQuatRef.current.copy(helper.quaternion)
-              constrainedDeltaRef.current.identity()
-            }}
-            onObjectChange={() => {
-              if (!draggingRef.current) return
-              const bone = selectedBoneRef.current
-              const helper = helperRef.current
-              if (!bone || !helper) return
+        <TransformControls
+          key={selectedBone.uuid}
+          object={selectedBone}
+          mode="rotate"
+          space="local"
+          size={0.45}
+          onMouseDown={() => {
+            const bone = selectedBoneRef.current
+            if (!bone) return
+            draggingRef.current = true
+            startBoneQuatRef.current.copy(bone.quaternion)
+            constrainedDeltaRef.current.identity()
+          }}
+          onObjectChange={() => {
+            if (!draggingRef.current) return
+            const bone = selectedBoneRef.current
+            if (!bone) return
 
-              const rawDelta = new THREE.Quaternion()
-                .copy(startHelperQuatRef.current)
-                .invert()
-                .multiply(helper.quaternion)
-              const rawEuler = new THREE.Euler().setFromQuaternion(rawDelta, 'XYZ')
-              const constraint = selectedConstraintRef.current
+            const rawDelta = new THREE.Quaternion()
+              .copy(startBoneQuatRef.current)
+              .invert()
+              .multiply(bone.quaternion)
+            const rawEuler = new THREE.Euler().setFromQuaternion(rawDelta, 'XYZ')
+            const constraint = selectedConstraintRef.current
 
-              const x = constraint.enabled.x
-                ? clamp(
-                    rawEuler.x * RAD2DEG,
-                    constraint.limitsDeg.x.min,
-                    constraint.limitsDeg.x.max,
-                  )
-                : 0
-              const y = constraint.enabled.y
-                ? clamp(
-                    rawEuler.y * RAD2DEG,
-                    constraint.limitsDeg.y.min,
-                    constraint.limitsDeg.y.max,
-                  )
-                : 0
-              const z = constraint.enabled.z
-                ? clamp(
-                    rawEuler.z * RAD2DEG,
-                    constraint.limitsDeg.z.min,
-                    constraint.limitsDeg.z.max,
-                  )
-                : 0
+            const x = constraint.enabled.x
+              ? clamp(
+                  rawEuler.x * RAD2DEG,
+                  constraint.limitsDeg.x.min,
+                  constraint.limitsDeg.x.max,
+                )
+              : 0
+            const y = constraint.enabled.y
+              ? clamp(
+                  rawEuler.y * RAD2DEG,
+                  constraint.limitsDeg.y.min,
+                  constraint.limitsDeg.y.max,
+                )
+              : 0
+            const z = constraint.enabled.z
+              ? clamp(
+                  rawEuler.z * RAD2DEG,
+                  constraint.limitsDeg.z.min,
+                  constraint.limitsDeg.z.max,
+                )
+              : 0
 
-              const constrainedDelta = new THREE.Quaternion().setFromEuler(
-                new THREE.Euler(x / RAD2DEG, y / RAD2DEG, z / RAD2DEG, 'XYZ'),
-              )
-              constrainedDeltaRef.current.copy(constrainedDelta)
+            const constrainedDelta = new THREE.Quaternion().setFromEuler(
+              new THREE.Euler(x / RAD2DEG, y / RAD2DEG, z / RAD2DEG, 'XYZ'),
+            )
+            constrainedDeltaRef.current.copy(constrainedDelta)
 
-              helper.quaternion.copy(startHelperQuatRef.current).multiply(constrainedDelta)
-              bone.quaternion.copy(startBoneQuatRef.current).multiply(constrainedDelta).normalize()
+            bone.quaternion.copy(startBoneQuatRef.current).multiply(constrainedDelta).normalize()
 
-              updateSkeleton(skeleton)
-            }}
-            onMouseUp={() => {
-              if (!draggingRef.current) return
-              draggingRef.current = false
+            updateSkeleton(skeleton)
+          }}
+          onMouseUp={() => {
+            if (!draggingRef.current) return
+            draggingRef.current = false
 
-              const bone = selectedBoneRef.current
-              if (!bone) return
+            const bone = selectedBoneRef.current
+            if (!bone) return
 
-              const ops = deltaToOps(constrainedDeltaRef.current, canonicalBoneName(bone.name))
-              pushPoseOps(ops)
-            }}
-            showX={selectedConstraint.enabled.x}
-            showY={selectedConstraint.enabled.y}
-            showZ={selectedConstraint.enabled.z}
-          />
-        </group>
+            const ops = deltaToOps(constrainedDeltaRef.current, canonicalBoneName(bone.name))
+            pushPoseOps(ops)
+          }}
+          showX={selectedConstraint.enabled.x}
+          showY={selectedConstraint.enabled.y}
+          showZ={selectedConstraint.enabled.z}
+        />
       )}
     </group>
   )
