@@ -28,6 +28,10 @@
       "types": "./components/PoseAdjustToolbar.tsx",
       "default": "./components/PoseAdjustToolbar.tsx"
     },
+    "./PoseGizmoModeSegment": {
+      "types": "./components/PoseGizmoModeSegment.tsx",
+      "default": "./components/PoseGizmoModeSegment.tsx"
+    },
     "./poses": {
       "types": "./lib/poses-export.ts",
       "default": "./lib/poses-export.ts"

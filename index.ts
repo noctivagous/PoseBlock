@@ -1,5 +1,6 @@
 export { PoseBlockCompositor } from './components/PoseBlockCompositor'
 export { PoseBlockDevPanel } from './components/PoseBlockDevPanel'
+export { PoseGizmoModeSegment } from './components/PoseGizmoModeSegment'
 export { InstanceMannequinPanel } from './components/InstanceMannequinPanel'
 export { PreviewFrame } from './components/PreviewFrame'
 export { Scene } from './components/Scene'
@@ -27,5 +28,11 @@ export {
 } from './lib/framing'
 
 export { VIEW_HEIGHT } from './lib/sceneConstants'
+export {
+  DEFAULT_JOINT_CONSTRAINT,
+  POSE_JOINT_LIMITS,
+  constraintForBone,
+} from './lib/poseJointConstraints'
 export { useStore } from './lib/store'
-export type { StoreState, InteractionMode } from './lib/store'
+export type { StoreState, InteractionMode, PoseGizmoMode } from './lib/store'
+export type { Axis, AxisLimit, JointConstraint } from './lib/poseJointConstraints'

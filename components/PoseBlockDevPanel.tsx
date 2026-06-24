@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react'
 import { ExportButton } from '../components/ExportButton'
 import { InstanceMannequinPanel } from '../components/InstanceMannequinPanel'
 import { PoseAdjustToolbar } from '../components/PoseAdjustToolbar'
+import { PoseGizmoModeSegment } from '../components/PoseGizmoModeSegment'
 import { Toolbar } from '../components/Toolbar'
 import { useStore } from '../lib/store'
 
@@ -33,6 +34,7 @@ export function PoseBlockDevPanel() {
           Drag the mannequin to move it. Use bounding-box controls to rotate,
           change depth, or scale. Export composites the backdrop with the 3D overlay.
         </p>
+        <PoseGizmoModeSegment />
       </div>
 
       <InstanceMannequinPanel />

@@ -10,6 +10,7 @@ import {
 import type { Pose } from '../lib/poses'
 
 export type InteractionMode = 'transform' | 'pose'
+export type PoseGizmoMode = 'legacy' | 'joint'
 
 export type StoreState = {
   instances: CharacterInstance[]
@@ -17,7 +18,9 @@ export type StoreState = {
   characterModels: CharacterModel[]
   posePresets: Record<string, Pose>
   interactionMode: InteractionMode
+  poseGizmoMode: PoseGizmoMode
   selectedBodyPart: BodyPartId | null
+  selectedPoseBone: string | null
   backdropUrl: string
   frameWidth: number
   frameHeight: number
@@ -60,7 +63,9 @@ export const useStore = create<StoreState>((set, get) => ({
   characterModels: [],
   posePresets: {},
   interactionMode: 'transform',
+  poseGizmoMode: 'legacy',
   selectedBodyPart: null,
+  selectedPoseBone: null,
   backdropUrl: '/default_backdrop.jpg',
   frameWidth: 16,
   frameHeight: 9,
@@ -110,10 +115,10 @@ export const useStore = create<StoreState>((set, get) => ({
       }
       return
     }
-    set({ selectedIds: [id], selectedBodyPart: null })
+    set({ selectedIds: [id], selectedBodyPart: null, selectedPoseBone: null })
   },
 
-  clearSelection: () => set({ selectedIds: [], selectedBodyPart: null }),
+  clearSelection: () => set({ selectedIds: [], selectedBodyPart: null, selectedPoseBone: null }),
 
   pushPoseOp: (op) => {
     set({
@@ -194,6 +199,7 @@ export const useStore = create<StoreState>((set, get) => ({
         poseAdjustmentFuture: [],
       })),
       selectedBodyPart: null,
+      selectedPoseBone: null,
     })
   },
 }))

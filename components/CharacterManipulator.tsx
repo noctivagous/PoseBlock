@@ -20,6 +20,7 @@ import { useStore } from '../lib/store'
 import { BoundingBoxGizmo } from './BoundingBoxGizmo'
 import { PoseBodyPicker } from './PoseBodyPicker'
 import { PoseJointGizmo } from './PoseJointGizmo'
+import { PoseJointSphereGizmo } from './PoseJointSphereGizmo'
 
 const TARGET_MODEL_HEIGHT = 1.8
 const DEG2RAD = Math.PI / 180
@@ -54,6 +55,7 @@ function CharacterModelContent({
   const frameWidth = useStore((s) => s.frameWidth)
   const frameHeight = useStore((s) => s.frameHeight)
   const interactionMode = useStore((s) => s.interactionMode)
+  const poseGizmoMode = useStore((s) => s.poseGizmoMode)
   const updateInstance = useStore((s) => s.updateInstance)
   const selectInstance = useStore((s) => s.selectInstance)
   const set = useStore((s) => s.set)
@@ -237,11 +239,14 @@ function CharacterModelContent({
         {isPrimary && interactionMode === 'transform' && (
           <BoundingBoxGizmo instanceId={instanceId} size={fit.size} center={fit.center} />
         )}
-        {isPrimary && skeleton && (
+        {isPrimary && skeleton && poseGizmoMode === 'legacy' && (
           <>
             <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
             <PoseJointGizmo skeleton={skeleton} />
           </>
+        )}
+        {isPrimary && skeleton && poseGizmoMode === 'joint' && (
+          <PoseJointSphereGizmo skeleton={skeleton} fitScale={fit.scale} />
         )}
       </group>
     </group>
