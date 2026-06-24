@@ -16,6 +16,8 @@ import { findSkeletonBone } from '../lib/poses'
 import { useStore } from '../lib/store'
 
 const _worldPos = new THREE.Vector3()
+const _worldQuat = new THREE.Quaternion()
+const _parentQuat = new THREE.Quaternion()
 const DRAG_TO_DEGREES = 0.25
 
 function clamp(value: number, min: number, max: number): number {
@@ -29,6 +31,11 @@ function dragOpsForPart(partId: BodyPartId, dx: number, dy: number) {
   switch (partId) {
     case 'head':
       return [headRotate('y', yaw), headRotate('x', pitch)]
+    case 'neck':
+      return [
+        { type: 'rotateBone' as const, bone: 'Neck', axis: 'y' as const, degrees: yaw },
+        { type: 'rotateBone' as const, bone: 'Neck', axis: 'x' as const, degrees: pitch },
+      ]
     case 'torso':
       return [torsoNudge(pitch, yaw)]
     case 'leftArm':
@@ -45,10 +52,52 @@ function dragOpsForPart(partId: BodyPartId, dx: number, dy: number) {
         { type: 'rotateBone' as const, bone: 'RightHand', axis: 'y' as const, degrees: yaw },
         { type: 'rotateBone' as const, bone: 'RightHand', axis: 'x' as const, degrees: pitch },
       ]
+    case 'leftForeArm':
+      return [
+        { type: 'rotateBone' as const, bone: 'LeftForeArm', axis: 'y' as const, degrees: yaw },
+        { type: 'rotateBone' as const, bone: 'LeftForeArm', axis: 'x' as const, degrees: pitch },
+      ]
+    case 'rightForeArm':
+      return [
+        { type: 'rotateBone' as const, bone: 'RightForeArm', axis: 'y' as const, degrees: yaw },
+        { type: 'rotateBone' as const, bone: 'RightForeArm', axis: 'x' as const, degrees: pitch },
+      ]
+    case 'leftUpLeg':
+      return [
+        { type: 'rotateBone' as const, bone: 'LeftUpLeg', axis: 'y' as const, degrees: yaw },
+        { type: 'rotateBone' as const, bone: 'LeftUpLeg', axis: 'x' as const, degrees: pitch },
+      ]
+    case 'rightUpLeg':
+      return [
+        { type: 'rotateBone' as const, bone: 'RightUpLeg', axis: 'y' as const, degrees: yaw },
+        { type: 'rotateBone' as const, bone: 'RightUpLeg', axis: 'x' as const, degrees: pitch },
+      ]
+    case 'leftLeg':
+      return [
+        { type: 'rotateBone' as const, bone: 'LeftLeg', axis: 'x' as const, degrees: pitch },
+        { type: 'rotateBone' as const, bone: 'LeftLeg', axis: 'y' as const, degrees: yaw },
+      ]
+    case 'rightLeg':
+      return [
+        { type: 'rotateBone' as const, bone: 'RightLeg', axis: 'x' as const, degrees: pitch },
+        { type: 'rotateBone' as const, bone: 'RightLeg', axis: 'y' as const, degrees: yaw },
+      ]
+    case 'leftFoot':
+      return [
+        { type: 'rotateBone' as const, bone: 'LeftFoot', axis: 'x' as const, degrees: pitch },
+        { type: 'rotateBone' as const, bone: 'LeftFoot', axis: 'y' as const, degrees: yaw },
+      ]
+    case 'rightFoot':
+      return [
+        { type: 'rotateBone' as const, bone: 'RightFoot', axis: 'x' as const, degrees: pitch },
+        { type: 'rotateBone' as const, bone: 'RightFoot', axis: 'y' as const, degrees: yaw },
+      ]
     case 'stance':
       return [stanceNudge(clamp(dx * 0.1, -8, 8))]
     case 'whole':
       return [wholeRotate('y', yaw), wholeRotate('x', pitch)]
+    default:
+      return []
   }
 }
 
@@ -83,6 +132,12 @@ function PartPickerSphere({
     bone.getWorldPosition(_worldPos)
     mesh.parent?.worldToLocal(_worldPos)
     mesh.position.copy(_worldPos)
+
+    bone.getWorldQuaternion(_worldQuat)
+    if (mesh.parent) {
+      mesh.parent.getWorldQuaternion(_parentQuat)
+      mesh.quaternion.copy(_parentQuat.invert().multiply(_worldQuat))
+    }
   })
 
   return (
@@ -146,6 +201,20 @@ function PartPickerSphere({
         depthWrite={false}
         toneMapped={false}
       />
+      <group>
+        <mesh position={[radius * 0.7, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[radius * 0.06, radius * 0.06, radius * 1.4, 6]} />
+          <meshBasicMaterial color="#ff6b6b" transparent opacity={selected ? 0.95 : 0.7} depthTest={false} />
+        </mesh>
+        <mesh position={[0, radius * 0.7, 0]}>
+          <cylinderGeometry args={[radius * 0.06, radius * 0.06, radius * 1.4, 6]} />
+          <meshBasicMaterial color="#4ade80" transparent opacity={selected ? 0.95 : 0.7} depthTest={false} />
+        </mesh>
+        <mesh position={[0, 0, radius * 0.7]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[radius * 0.06, radius * 0.06, radius * 1.4, 6]} />
+          <meshBasicMaterial color="#60a5fa" transparent opacity={selected ? 0.95 : 0.7} depthTest={false} />
+        </mesh>
+      </group>
     </mesh>
   )
 }

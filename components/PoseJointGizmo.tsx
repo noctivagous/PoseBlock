@@ -20,11 +20,20 @@ type JointConstraint = {
 
 const JOINT_CONSTRAINTS: Record<BodyPartId, JointConstraint> = {
   head: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 45, y: 80, z: 40 } },
+  neck: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 35, y: 65, z: 35 } },
   torso: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 35, y: 40, z: 20 } },
   leftArm: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 130, y: 90, z: 120 } },
+  leftForeArm: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 135, y: 80, z: 80 } },
+  rightForeArm: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 135, y: 80, z: 80 } },
   rightArm: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 130, y: 90, z: 120 } },
   leftHand: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 70, y: 70, z: 70 } },
   rightHand: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 70, y: 70, z: 70 } },
+  leftUpLeg: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 110, y: 65, z: 65 } },
+  rightUpLeg: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 110, y: 65, z: 65 } },
+  leftLeg: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 130, y: 35, z: 35 } },
+  rightLeg: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 130, y: 35, z: 35 } },
+  leftFoot: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 50, y: 35, z: 35 } },
+  rightFoot: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 50, y: 35, z: 35 } },
   stance: { enabled: { x: false, y: true, z: false }, limitsDeg: { y: 25 } },
   whole: { enabled: { x: true, y: true, z: true }, limitsDeg: { x: 35, y: 70, z: 35 } },
 }
@@ -183,4 +192,3 @@ export function PoseJointGizmo({ skeleton }: { skeleton: THREE.Skeleton }) {
     </>
   )
 }
-

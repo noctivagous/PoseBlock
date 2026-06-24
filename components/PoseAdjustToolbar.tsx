@@ -16,7 +16,7 @@ import {
   upperArmTwist,
   wholeRotate,
 } from '../lib/poseAdjustmentActions'
-import { clampCharacterZ, depthScaleFactor, Z_STEP } from '../lib/characterTransform'
+import { dollyAnchor } from '../lib/characterTransform'
 import { getAllPosePresets } from '../lib/posePresets'
 import { useStore } from '../lib/store'
 import { useMemo } from 'react'
@@ -146,6 +146,7 @@ function LegColPair({
 export function PoseAdjustToolbar() {
   const instances = useStore((s) => s.instances)
   const selectedIds = useStore((s) => s.selectedIds)
+  const mode = useStore((s) => s.mode)
   const primaryId = selectedIds[0] ?? null
   const primary = instances.find((i) => i.id === primaryId)
   const posePresets = useStore((s) => s.posePresets)
@@ -154,6 +155,7 @@ export function PoseAdjustToolbar() {
   const redoPoseAdjustment = useStore((s) => s.redoPoseAdjustment)
   const resetPoseAdjustments = useStore((s) => s.resetPoseAdjustments)
   const setBasePoseId = useStore((s) => s.setBasePoseId)
+  const setInstanceIkBlend = useStore((s) => s.setInstanceIkBlend)
   const updateInstance = useStore((s) => s.updateInstance)
   const set = useStore((s) => s.set)
 
@@ -174,12 +176,69 @@ export function PoseAdjustToolbar() {
     return null
   }
 
+  if (mode === 'controlRig') {
+    const sliderClass = 'w-full accent-sky-400'
+
+    return (
+      <div className="flex flex-col gap-2 rounded-lg bg-black/40 p-3 text-xs">
+        <div className="text-[11px] text-white/75">Control Rig FK/IK Blend</div>
+        <label className="flex flex-col gap-1 text-white/80">
+          <span>Left Arm: {primary.ikBlend.leftArm.toFixed(2)}</span>
+          <input
+            className={sliderClass}
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={primary.ikBlend.leftArm}
+            onChange={(e) => setInstanceIkBlend(primary.id, 'leftArm', Number(e.target.value))}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-white/80">
+          <span>Right Arm: {primary.ikBlend.rightArm.toFixed(2)}</span>
+          <input
+            className={sliderClass}
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={primary.ikBlend.rightArm}
+            onChange={(e) => setInstanceIkBlend(primary.id, 'rightArm', Number(e.target.value))}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-white/80">
+          <span>Left Leg: {primary.ikBlend.leftLeg.toFixed(2)}</span>
+          <input
+            className={sliderClass}
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={primary.ikBlend.leftLeg}
+            onChange={(e) => setInstanceIkBlend(primary.id, 'leftLeg', Number(e.target.value))}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-white/80">
+          <span>Right Leg: {primary.ikBlend.rightLeg.toFixed(2)}</span>
+          <input
+            className={sliderClass}
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={primary.ikBlend.rightLeg}
+            onChange={(e) => setInstanceIkBlend(primary.id, 'rightLeg', Number(e.target.value))}
+          />
+        </label>
+      </div>
+    )
+  }
+
   const {
     poseAdjustmentPast,
     poseAdjustmentFuture,
     scale: characterScale,
     characterZ,
-    y: anchorY,
   } = primary
 
   const scaleUp = () =>
@@ -192,12 +251,7 @@ export function PoseAdjustToolbar() {
     })
 
   const dolly = (direction: 1 | -1) => {
-    const newZ = clampCharacterZ(characterZ + direction * Z_STEP)
-    const oldFactor = depthScaleFactor(characterZ)
-    const newFactor = depthScaleFactor(newZ)
-    const halfH = characterScale * oldFactor * 0.9
-    const centerShift = halfH * (newFactor / oldFactor - 1)
-    updateInstance(primary.id, { characterZ: newZ, y: anchorY + centerShift })
+    updateInstance(primary.id, dollyAnchor({ scale: characterScale }, characterZ, direction))
   }
 
   const savePose = async () => {

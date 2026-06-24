@@ -1,10 +1,11 @@
 'use client'
 
-import { useFBX, useGLTF } from '@react-three/drei'
-import type { ThreeEvent } from '@react-three/fiber'
+import { PivotControls, useFBX, useGLTF } from '@react-three/drei'
+import { type ThreeEvent, useFrame } from '@react-three/fiber'
 import { Component, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { SkeletonUtils } from 'three-stdlib'
 import * as THREE from 'three'
+import { CCDIKSolver } from 'three/examples/jsm/animation/CCDIKSolver.js'
 import { isFbxModelUrl } from '../lib/characterModels'
 import { displayScale } from '../lib/characterTransform'
 import {
@@ -15,15 +16,19 @@ import {
 import { alignSkeletonToMixamoBind } from '../lib/mixamoBind'
 import { composePose } from '../lib/poseCompose'
 import { getAllPosePresets } from '../lib/posePresets'
-import { lerpPose, resetPose } from '../lib/poses'
+import type { ControlRig, PinKey, Pins } from '../lib/instances'
+import { findSkeletonBone, lerpPose, MIXAMO_BONES, resetPose } from '../lib/poses'
 import { useStore } from '../lib/store'
 import { BoundingBoxGizmo } from './BoundingBoxGizmo'
 import { PoseBodyPicker } from './PoseBodyPicker'
+import { PoseCylinderGizmo } from './PoseCylinderGizmo'
 import { PoseJointGizmo } from './PoseJointGizmo'
 import { PoseJointSphereGizmo } from './PoseJointSphereGizmo'
 
 const TARGET_MODEL_HEIGHT = 1.8
 const DEG2RAD = Math.PI / 180
+const tempVec = new THREE.Vector3()
+const tempQuat = new THREE.Quaternion()
 
 type CharacterModelProps = {
   modelUrl: string
@@ -56,11 +61,18 @@ function CharacterModelContent({
   const frameHeight = useStore((s) => s.frameHeight)
   const interactionMode = useStore((s) => s.interactionMode)
   const poseGizmoMode = useStore((s) => s.poseGizmoMode)
+  const mode = useStore((s) => s.mode)
   const updateInstance = useStore((s) => s.updateInstance)
+  const setInstanceControlRig = useStore((s) => s.setInstanceControlRig)
+  const setInstancePin = useStore((s) => s.setInstancePin)
+  const setInstancePinnedWorldPos = useStore((s) => s.setInstancePinnedWorldPos)
   const selectInstance = useStore((s) => s.selectInstance)
   const set = useStore((s) => s.set)
 
   const skeletonRef = useRef<THREE.Skeleton | null>(null)
+  const solverRef = useRef<CCDIKSolver | null>(null)
+  const fkPoseRef = useRef<Record<string, number[]>>({})
+  const rigPoseSigRef = useRef<string>('')
   const [skeleton, setSkeleton] = useState<THREE.Skeleton | null>(null)
   const isDragging = useRef(false)
   const dragPointerId = useRef<number | null>(null)
@@ -75,6 +87,10 @@ function CharacterModelContent({
     if (!base) return null
     return composePose(base, instance.poseAdjustments)
   }, [availablePoses, instance])
+  const poseRigSignature = useMemo(() => {
+    if (!instance) return ''
+    return `${instance.basePoseId}:${JSON.stringify(instance.poseAdjustments)}`
+  }, [instance])
 
   const fit = useMemo(() => {
     const box = new THREE.Box3().setFromObject(clonedScene)
@@ -90,28 +106,208 @@ function CharacterModelContent({
 
   useEffect(() => {
     set({ characterError: null })
-    let found: THREE.Skeleton | null = null
-    clonedScene.traverse((obj) => {
-      if ((obj as THREE.SkinnedMesh).isSkinnedMesh) {
-        found = (obj as THREE.SkinnedMesh).skeleton
-      }
-    })
+    const skinned = clonedScene.getObjectByProperty('isSkinnedMesh', true) as
+      | THREE.SkinnedMesh
+      | undefined
+    const found = skinned?.skeleton
     if (!found) {
       set({ characterError: 'No skeleton found — retarget may have failed' })
       skeletonRef.current = null
       setSkeleton(null)
       return
     }
-    if (alignMixamoBind) alignSkeletonToMixamoBind(found)
-    skeletonRef.current = found
-    setSkeleton(found)
+    const skeletonFound = found
+    if (alignMixamoBind) alignSkeletonToMixamoBind(skeletonFound)
+    const getBoneIndex = (name: string) => {
+      const bone = findSkeletonBone(skeletonFound, name)
+      return bone ? skeletonFound.bones.indexOf(bone) : -1
+    }
+    const chains = [
+      {
+        target: getBoneIndex('LeftHand'),
+        effector: getBoneIndex('LeftHand'),
+        links: [
+          {
+            index: getBoneIndex('LeftForeArm'),
+            rotationMin: new THREE.Vector3(0, -0.2, -0.2),
+            rotationMax: new THREE.Vector3(2.4, 0.2, 0.2),
+          },
+          {
+            index: getBoneIndex('LeftArm'),
+            rotationMin: new THREE.Vector3(-1.5, -1, -1),
+            rotationMax: new THREE.Vector3(1.5, 1, 1),
+          },
+          { index: getBoneIndex('LeftShoulder') },
+        ].filter((l) => l.index >= 0),
+      },
+      {
+        target: getBoneIndex('RightHand'),
+        effector: getBoneIndex('RightHand'),
+        links: [
+          {
+            index: getBoneIndex('RightForeArm'),
+            rotationMin: new THREE.Vector3(0, -0.2, -0.2),
+            rotationMax: new THREE.Vector3(2.4, 0.2, 0.2),
+          },
+          {
+            index: getBoneIndex('RightArm'),
+            rotationMin: new THREE.Vector3(-1.5, -1, -1),
+            rotationMax: new THREE.Vector3(1.5, 1, 1),
+          },
+          { index: getBoneIndex('RightShoulder') },
+        ].filter((l) => l.index >= 0),
+      },
+      {
+        target: getBoneIndex('LeftFoot'),
+        effector: getBoneIndex('LeftFoot'),
+        links: [
+          {
+            index: getBoneIndex('LeftLeg'),
+            rotationMin: new THREE.Vector3(0, -0.1, -0.1),
+            rotationMax: new THREE.Vector3(2.6, 0.1, 0.1),
+          },
+          {
+            index: getBoneIndex('LeftUpLeg'),
+            rotationMin: new THREE.Vector3(-1.8, -0.5, -0.5),
+            rotationMax: new THREE.Vector3(0.5, 0.5, 0.5),
+          },
+        ].filter((l) => l.index >= 0),
+      },
+      {
+        target: getBoneIndex('RightFoot'),
+        effector: getBoneIndex('RightFoot'),
+        links: [
+          {
+            index: getBoneIndex('RightLeg'),
+            rotationMin: new THREE.Vector3(0, -0.1, -0.1),
+            rotationMax: new THREE.Vector3(2.6, 0.1, 0.1),
+          },
+          {
+            index: getBoneIndex('RightUpLeg'),
+            rotationMin: new THREE.Vector3(-1.8, -0.5, -0.5),
+            rotationMax: new THREE.Vector3(0.5, 0.5, 0.5),
+          },
+        ].filter((l) => l.index >= 0),
+      },
+      {
+        target: getBoneIndex('Head'),
+        effector: getBoneIndex('Head'),
+        links: [
+          {
+            index: getBoneIndex('Neck'),
+            rotationMin: new THREE.Vector3(-0.5, -0.8, -0.5),
+            rotationMax: new THREE.Vector3(0.5, 0.8, 0.5),
+          },
+        ].filter((l) => l.index >= 0),
+      },
+      {
+        target: getBoneIndex('Spine2'),
+        effector: getBoneIndex('Spine2'),
+        links: [
+          {
+            index: getBoneIndex('Spine1'),
+            rotationMin: new THREE.Vector3(-0.3, -0.3, -0.3),
+            rotationMax: new THREE.Vector3(0.3, 0.3, 0.3),
+          },
+          { index: getBoneIndex('Spine') },
+        ].filter((l) => l.index >= 0),
+      },
+    ].filter((c) => c.target >= 0)
+    const solverSkinned = clonedScene.getObjectByProperty('isSkinnedMesh', true) as
+      | THREE.SkinnedMesh
+      | undefined
+    solverRef.current = solverSkinned ? new CCDIKSolver(solverSkinned, chains as never) : null
+    skeletonRef.current = skeletonFound
+    setSkeleton(skeletonFound)
   }, [alignMixamoBind, clonedScene, set])
 
   useEffect(() => {
     if (!skeletonRef.current || !composedPose) return
+    if (mode === 'controlRig' && instance?.controlRig.initialized) return
     resetPose(skeletonRef.current)
     lerpPose(skeletonRef.current, composedPose, 1)
-  }, [composedPose, clonedScene])
+  }, [composedPose, clonedScene, mode, instance?.controlRig.initialized])
+
+  useEffect(() => {
+    if (mode !== 'controlRig' || !skeletonRef.current || !composedPose || !instance) return
+    if (instance.controlRig.initialized && rigPoseSigRef.current === poseRigSignature) return
+
+    resetPose(skeletonRef.current)
+    lerpPose(skeletonRef.current, composedPose, 1)
+
+    const getWorldPos = (boneName: string): [number, number, number] => {
+      const bone = findSkeletonBone(skeletonRef.current as THREE.Skeleton, boneName)
+      if (!bone) return [0, 0, 0]
+      bone.getWorldPosition(tempVec)
+      return tempVec.toArray() as [number, number, number]
+    }
+
+    setInstanceControlRig(instanceId, {
+      initialized: true,
+      head: getWorldPos('Head'),
+      chest: getWorldPos('Spine2'),
+      hips: getWorldPos('Hips'),
+      leftHand: getWorldPos('LeftHand'),
+      rightHand: getWorldPos('RightHand'),
+      leftFoot: getWorldPos('LeftFoot'),
+      rightFoot: getWorldPos('RightFoot'),
+    })
+    rigPoseSigRef.current = poseRigSignature
+  }, [composedPose, instance, instanceId, mode, poseRigSignature, setInstanceControlRig])
+
+  useFrame(() => {
+    if (mode !== 'controlRig' || !skeletonRef.current || !solverRef.current || !instance) return
+    const activeSkeleton = skeletonRef.current
+
+    const fkPose: Record<string, number[]> = {}
+    MIXAMO_BONES.forEach((name) => {
+      const bone = findSkeletonBone(activeSkeleton, name)
+      if (bone) fkPose[name] = bone.quaternion.toArray() as number[]
+    })
+    fkPoseRef.current = fkPose
+
+    const setTarget = (
+      boneName: string,
+      pos: [number, number, number],
+      isPinned: boolean,
+      pinnedPos: [number, number, number],
+    ) => {
+      const bone = findSkeletonBone(activeSkeleton, boneName)
+      if (!bone) return
+      const worldPos = new THREE.Vector3().fromArray(isPinned ? pinnedPos : pos)
+      if (bone.parent) {
+        bone.parent.worldToLocal(worldPos)
+      }
+      bone.position.copy(worldPos)
+    }
+
+    setTarget('LeftHand', instance.controlRig.leftHand, instance.pins.leftHand, instance.pinnedWorldPos.leftHand)
+    setTarget('RightHand', instance.controlRig.rightHand, instance.pins.rightHand, instance.pinnedWorldPos.rightHand)
+    setTarget('LeftFoot', instance.controlRig.leftFoot, instance.pins.leftFoot, instance.pinnedWorldPos.leftFoot)
+    setTarget('RightFoot', instance.controlRig.rightFoot, instance.pins.rightFoot, instance.pinnedWorldPos.rightFoot)
+    setTarget('Head', instance.controlRig.head, false, [0, 0, 0])
+    setTarget('Spine2', instance.controlRig.chest, false, [0, 0, 0])
+    setTarget('Hips', instance.controlRig.hips, false, [0, 0, 0])
+
+    solverRef.current.update()
+
+    const blendLimb = (boneNames: string[], blend: number) => {
+      if (blend >= 0.999) return
+      boneNames.forEach((name) => {
+        const bone = findSkeletonBone(activeSkeleton, name)
+        if (!bone || !fkPoseRef.current[name]) return
+        const fkQ = tempQuat.fromArray(fkPoseRef.current[name])
+        bone.quaternion.slerpQuaternions(fkQ, bone.quaternion, blend)
+      })
+    }
+
+    blendLimb(['LeftArm', 'LeftForeArm', 'LeftHand'], instance.ikBlend.leftArm)
+    blendLimb(['RightArm', 'RightForeArm', 'RightHand'], instance.ikBlend.rightArm)
+    blendLimb(['LeftUpLeg', 'LeftLeg', 'LeftFoot'], instance.ikBlend.leftLeg)
+    blendLimb(['RightUpLeg', 'RightLeg', 'RightFoot'], instance.ikBlend.rightLeg)
+
+    activeSkeleton.update()
+  })
 
   useEffect(() => {
     const group = groupRef.current
@@ -170,6 +366,7 @@ function CharacterModelContent({
   }
 
   const onModelPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (mode === 'controlRig') return
     if (interactionMode !== 'transform') return
     e.stopPropagation()
     selectInstance(instanceId, { shiftKey: e.nativeEvent.shiftKey })
@@ -208,51 +405,135 @@ function CharacterModelContent({
   }
 
   return (
-    <group
-      ref={groupRef}
-      position={[world.worldX, world.worldY, world.worldZ]}
-      rotation={[
-        world.characterRotationX * DEG2RAD,
-        world.characterRotationY * DEG2RAD,
-        0,
-      ]}
-      scale={displayScale(world.characterScale, world.worldZ)}
-      onPointerDown={onModelPointerDown}
-      onPointerMove={onModelPointerMove}
-      onPointerUp={endModelDrag}
-      onPointerCancel={endModelDrag}
-    >
-      <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
-        <primitive object={clonedScene} />
-        {isSelected && (
-          <mesh
-            position={[fit.center.x, fit.center.y, fit.center.z]}
-            scale={[fit.size.x, fit.size.y, fit.size.z]}
-          >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshBasicMaterial
-              color={isPrimary ? '#fbbf24' : '#38bdf8'}
-              wireframe
-              transparent
-              opacity={0.35}
-              depthTest={false}
-            />
-          </mesh>
-        )}
-        {isPrimary && interactionMode === 'transform' && (
-          <BoundingBoxGizmo instanceId={instanceId} size={fit.size} center={fit.center} />
-        )}
-        {isPrimary && skeleton && poseGizmoMode === 'legacy' && (
-          <>
-            <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
-            <PoseJointGizmo skeleton={skeleton} />
-          </>
-        )}
-        {isPrimary && skeleton && poseGizmoMode === 'joint' && (
-          <PoseJointSphereGizmo skeleton={skeleton} fitScale={fit.scale} />
-        )}
+    <>
+      <group
+        ref={groupRef}
+        position={[world.worldX, world.worldY, world.worldZ]}
+        rotation={[
+          world.characterRotationX * DEG2RAD,
+          world.characterRotationY * DEG2RAD,
+          0,
+        ]}
+        scale={displayScale(world.characterScale, world.worldZ)}
+        onPointerDown={onModelPointerDown}
+        onPointerMove={onModelPointerMove}
+        onPointerUp={endModelDrag}
+        onPointerCancel={endModelDrag}
+      >
+        <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
+          <primitive object={clonedScene} />
+          {isSelected && (
+            <mesh
+              position={[fit.center.x, fit.center.y, fit.center.z]}
+              scale={[fit.size.x, fit.size.y, fit.size.z]}
+            >
+              <boxGeometry args={[1, 1, 1]} />
+              <meshBasicMaterial
+                color={isPrimary ? '#fbbf24' : '#38bdf8'}
+                wireframe
+                transparent
+                opacity={0.35}
+                depthTest={false}
+              />
+            </mesh>
+          )}
+          {isPrimary && mode !== 'controlRig' && interactionMode === 'transform' && (
+            <BoundingBoxGizmo instanceId={instanceId} size={fit.size} center={fit.center} />
+          )}
+          {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'legacy' && (
+            <>
+              <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
+              <PoseJointGizmo skeleton={skeleton} />
+            </>
+          )}
+          {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'joint' && (
+            <PoseJointSphereGizmo skeleton={skeleton} fitScale={fit.scale} />
+          )}
+          {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'cylinder' && (
+            <PoseCylinderGizmo skeleton={skeleton} fitScale={fit.scale} />
+          )}
+        </group>
       </group>
-    </group>
+      {isPrimary && mode === 'controlRig' && (
+        <ControlRigHandles
+          instanceId={instanceId}
+          controlRig={instance.controlRig}
+          pins={instance.pins}
+          setControlRig={setInstanceControlRig}
+          setPin={setInstancePin}
+          setPinnedWorldPos={setInstancePinnedWorldPos}
+        />
+      )}
+    </>
+  )
+}
+
+type ControlRigHandlesProps = {
+  instanceId: string
+  controlRig: ControlRig
+  pins: Pins
+  setControlRig: (id: string, update: Partial<ControlRig>) => void
+  setPin: (id: string, key: PinKey, value: boolean) => void
+  setPinnedWorldPos: (
+    id: string,
+    key: PinKey,
+    pos: [number, number, number],
+  ) => void
+}
+
+function ControlRigHandles({
+  instanceId,
+  controlRig,
+  pins,
+  setControlRig,
+  setPin,
+  setPinnedWorldPos,
+}: ControlRigHandlesProps) {
+  const handles = [
+    { key: 'head' as const, color: '#ffaa00', size: 0.08 },
+    { key: 'chest' as const, color: '#aa00ff', size: 0.08 },
+    { key: 'hips' as const, color: '#ff0066', size: 0.1 },
+    { key: 'leftHand' as const, color: pins.leftHand ? '#ff0000' : '#00aaff', size: 0.06 },
+    { key: 'rightHand' as const, color: pins.rightHand ? '#ff0000' : '#00aaff', size: 0.06 },
+    { key: 'leftFoot' as const, color: pins.leftFoot ? '#ff0000' : '#ff6600', size: 0.06 },
+    { key: 'rightFoot' as const, color: pins.rightFoot ? '#ff0000' : '#ff6600', size: 0.06 },
+  ]
+
+  return (
+    <>
+      {handles.map(({ key, color, size }) => (
+        <group key={key} position={controlRig[key]}>
+          <PivotControls
+            scale={size * 8}
+            depthTest={false}
+            lineWidth={2}
+            fixed
+            onDrag={(_l, _deltaL, worldMatrix) => {
+              tempVec.setFromMatrixPosition(worldMatrix)
+              setControlRig(instanceId, { [key]: tempVec.toArray() as [number, number, number] })
+            }}
+          >
+            <mesh
+              onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+                if (e.button !== 2) return
+                e.stopPropagation()
+                if (['leftHand', 'rightHand', 'leftFoot', 'rightFoot'].includes(key)) {
+                  const pinKey = key as PinKey
+                  const newPinState = !pins[pinKey]
+                  setPin(instanceId, pinKey, newPinState)
+                  if (newPinState) {
+                    setPinnedWorldPos(instanceId, pinKey, controlRig[key])
+                  }
+                }
+              }}
+            >
+              <sphereGeometry args={[size, 16, 16]} />
+              <meshBasicMaterial color={color} transparent opacity={0.8} depthTest={false} />
+            </mesh>
+          </PivotControls>
+        </group>
+      ))}
+    </>
   )
 }
 

@@ -4,6 +4,68 @@ import type { PoseBlockInstance } from '../types'
 /** Max mannequins — matches VideoGen crowd limit. */
 export const MAX_INSTANCES = 10
 
+export type PinKey = 'leftHand' | 'rightHand' | 'leftFoot' | 'rightFoot'
+
+export type ControlRig = {
+  initialized: boolean
+  head: [number, number, number]
+  chest: [number, number, number]
+  hips: [number, number, number]
+  leftHand: [number, number, number]
+  rightHand: [number, number, number]
+  leftFoot: [number, number, number]
+  rightFoot: [number, number, number]
+}
+
+export type Pins = Record<PinKey, boolean>
+export type PinnedWorldPos = Record<PinKey, [number, number, number]>
+export type IkBlend = {
+  leftArm: number
+  rightArm: number
+  leftLeg: number
+  rightLeg: number
+}
+
+export function createDefaultControlRig(): ControlRig {
+  return {
+    initialized: false,
+    head: [0, 1.65, 0],
+    chest: [0, 1.3, 0],
+    hips: [0, 0.9, 0],
+    leftHand: [0.4, 1.2, 0.1],
+    rightHand: [-0.4, 1.2, 0.1],
+    leftFoot: [0.1, 0.05, 0],
+    rightFoot: [-0.1, 0.05, 0],
+  }
+}
+
+export function createDefaultPins(): Pins {
+  return {
+    leftHand: false,
+    rightHand: false,
+    leftFoot: false,
+    rightFoot: false,
+  }
+}
+
+export function createDefaultPinnedWorldPos(): PinnedWorldPos {
+  return {
+    leftHand: [0, 0, 0],
+    rightHand: [0, 0, 0],
+    leftFoot: [0, 0, 0],
+    rightFoot: [0, 0, 0],
+  }
+}
+
+export function createDefaultIkBlend(): IkBlend {
+  return {
+    leftArm: 1,
+    rightArm: 1,
+    leftLeg: 1,
+    rightLeg: 1,
+  }
+}
+
 export type CharacterInstance = {
   id: string
   modelUrl: string
@@ -22,6 +84,10 @@ export type CharacterInstance = {
   characterZ: number
   characterRotationX: number
   characterRotationY: number
+  controlRig: ControlRig
+  pins: Pins
+  pinnedWorldPos: PinnedWorldPos
+  ikBlend: IkBlend
 }
 
 export function createInstanceId(): string {
@@ -46,6 +112,10 @@ export function createInstance(
     characterZ: 0,
     characterRotationX: 0,
     characterRotationY: 0,
+    controlRig: createDefaultControlRig(),
+    pins: createDefaultPins(),
+    pinnedWorldPos: createDefaultPinnedWorldPos(),
+    ikBlend: createDefaultIkBlend(),
   }
 }
 
@@ -62,5 +132,9 @@ export function instanceToPoseBlockExport(instance: CharacterInstance): PoseBloc
     characterZ: instance.characterZ,
     characterRotationX: instance.characterRotationX,
     characterRotationY: instance.characterRotationY,
+    controlRig: instance.controlRig,
+    pins: instance.pins,
+    pinnedWorldPos: instance.pinnedWorldPos,
+    ikBlend: instance.ikBlend,
   }
 }

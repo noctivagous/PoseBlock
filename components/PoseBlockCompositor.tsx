@@ -3,7 +3,13 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef } from 'react'
 import { PreviewFrame } from '../components/PreviewFrame'
-import type { CharacterInstance } from '../lib/instances'
+import {
+  createDefaultControlRig,
+  createDefaultIkBlend,
+  createDefaultPinnedWorldPos,
+  createDefaultPins,
+  type CharacterInstance,
+} from '../lib/instances'
 import { useStore } from '../lib/store'
 import type { PoseBlockCompositorProps, PoseBlockInstance } from '../types'
 
@@ -26,6 +32,10 @@ function toStoreInstance(ext: PoseBlockInstance): CharacterInstance {
     characterZ: ext.characterZ ?? 0,
     characterRotationX: ext.characterRotationX ?? 0,
     characterRotationY: ext.characterRotationY ?? ext.rotation,
+    controlRig: ext.controlRig ?? createDefaultControlRig(),
+    pins: ext.pins ?? createDefaultPins(),
+    pinnedWorldPos: ext.pinnedWorldPos ?? createDefaultPinnedWorldPos(),
+    ikBlend: ext.ikBlend ?? createDefaultIkBlend(),
   }
 }
 
@@ -44,6 +54,10 @@ function instancesSignature(instances: PoseBlockInstance[] | undefined): string 
       characterZ: inst.characterZ ?? 0,
       characterRotationX: inst.characterRotationX ?? 0,
       characterRotationY: inst.characterRotationY ?? inst.rotation,
+      controlRig: inst.controlRig ?? createDefaultControlRig(),
+      pins: inst.pins ?? createDefaultPins(),
+      pinnedWorldPos: inst.pinnedWorldPos ?? createDefaultPinnedWorldPos(),
+      ikBlend: inst.ikBlend ?? createDefaultIkBlend(),
     })),
   )
 }

@@ -3,10 +3,7 @@
 import { useRef } from 'react'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-import {
-  clampCharacterZ,
-  Z_STEP,
-} from '../lib/characterTransform'
+import { dollyAnchor } from '../lib/characterTransform'
 import { clampMannequinScale } from '../lib/framing'
 import { useStore } from '../lib/store'
 
@@ -58,7 +55,6 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
   const patch = (partial: Parameters<typeof updateInstance>[1]) =>
     updateInstance(instanceId, partial)
 
-  const halfX = size.x / 2
   const halfY = size.y / 2
   const pad = 0.18
 
@@ -99,39 +95,45 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
         />
       </mesh>
 
-      <Html position={[-halfX - pad, halfY * 0.25, 0]} center style={{ pointerEvents: 'auto' }}>
-        <GizmoBtn
-          label="↺"
-          title="Rotate left"
-          onClick={() => patch({ rotation: instance.rotation - ROT_STEP })}
-        />
-      </Html>
-
-      <Html position={[halfX + pad, halfY * 0.25, 0]} center style={{ pointerEvents: 'auto' }}>
-        <GizmoBtn
-          label="↻"
-          title="Rotate right"
-          onClick={() => patch({ rotation: instance.rotation + ROT_STEP })}
-        />
-      </Html>
-
-      <Html position={[0, halfY + pad, 0]} center style={{ pointerEvents: 'auto' }}>
-        <div className="flex gap-1">
-          <GizmoBtn
-            label="↑"
-            title="Move closer (larger)"
-            onClick={() => patch({ characterZ: clampCharacterZ(instance.characterZ + Z_STEP) })}
-          />
-          <GizmoBtn
-            label="↓"
-            title="Move farther (smaller)"
-            onClick={() => patch({ characterZ: clampCharacterZ(instance.characterZ - Z_STEP) })}
-          />
+      <Html position={[0, halfY + pad * 1.6, 0]} center style={{ pointerEvents: 'auto' }}>
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex gap-1">
+            <GizmoBtn
+              label="↺"
+              title="Rotate left"
+              onClick={() => patch({ rotation: instance.rotation - ROT_STEP })}
+            />
+            <GizmoBtn
+              label="↻"
+              title="Rotate right"
+              onClick={() => patch({ rotation: instance.rotation + ROT_STEP })}
+            />
+          </div>
+          <div className="flex gap-1">
+            <GizmoBtn
+              label="↑"
+              title="Move closer (larger)"
+              onClick={() =>
+                patch(
+                  dollyAnchor({ scale: instance.scale }, instance.characterZ, 1),
+                )
+              }
+            />
+            <GizmoBtn
+              label="↓"
+              title="Move farther (smaller)"
+              onClick={() =>
+                patch(
+                  dollyAnchor({ scale: instance.scale }, instance.characterZ, -1),
+                )
+              }
+            />
+          </div>
         </div>
       </Html>
 
-      <Html position={[-halfX - pad, -halfY * 0.25, 0]} center style={{ pointerEvents: 'auto' }}>
-        <div className="flex gap-1">
+      <Html position={[0, -halfY - pad, 0]} center style={{ pointerEvents: 'auto' }}>
+        <div className="flex items-center gap-1">
           <GizmoBtn
             label="P+"
             title="Pitch toward camera"
@@ -158,11 +160,6 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
               })
             }
           />
-        </div>
-      </Html>
-
-      <Html position={[halfX + 0.34, -halfY * 0.22, 0]} center style={{ pointerEvents: 'auto' }}>
-        <div className="flex items-center gap-1">
           <button
             type="button"
             title="Drag up/down to scale"

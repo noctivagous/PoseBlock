@@ -17,6 +17,34 @@ export type PoseBlockInstance = {
   characterZ?: number
   characterRotationX?: number
   characterRotationY?: number
+  controlRig?: {
+    initialized: boolean
+    head: [number, number, number]
+    chest: [number, number, number]
+    hips: [number, number, number]
+    leftHand: [number, number, number]
+    rightHand: [number, number, number]
+    leftFoot: [number, number, number]
+    rightFoot: [number, number, number]
+  }
+  pins?: {
+    leftHand: boolean
+    rightHand: boolean
+    leftFoot: boolean
+    rightFoot: boolean
+  }
+  pinnedWorldPos?: {
+    leftHand: [number, number, number]
+    rightHand: [number, number, number]
+    leftFoot: [number, number, number]
+    rightFoot: [number, number, number]
+  }
+  ikBlend?: {
+    leftArm: number
+    rightArm: number
+    leftLeg: number
+    rightLeg: number
+  }
 }
 
 export type PoseBlockCompositorProps = {

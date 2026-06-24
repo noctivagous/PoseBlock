@@ -1,3 +1,5 @@
+import { clampMannequinScale } from './framing/anchorLayout'
+
 /** Depth (Z) is stored separately; ortho camera can't show Z alone, so we couple it to display scale. */
 
 export const Z_STEP = 0.15
@@ -21,4 +23,18 @@ export function displayScale(baseScale: number, z: number): number {
 export function baseScaleFromDisplay(display: number, z: number): number {
   const factor = depthScaleFactor(z)
   return factor > 0 ? display / factor : display
+}
+
+/** Dolly in depth while updating anchor scale so size changes on an ortho view. */
+export function dollyAnchor(
+  anchor: { scale: number },
+  characterZ: number,
+  direction: 1 | -1,
+): { scale: number; characterZ: number } {
+  const newZ = clampCharacterZ(characterZ + direction * Z_STEP)
+  const ratio = depthScaleFactor(newZ) / depthScaleFactor(characterZ)
+  return {
+    characterZ: newZ,
+    scale: clampMannequinScale(anchor.scale * ratio),
+  }
 }

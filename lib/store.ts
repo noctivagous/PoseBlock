@@ -3,15 +3,25 @@ import type { BodyPartId } from '../lib/bodyParts'
 import type { CharacterModel } from '../lib/characterModels'
 import { appendPoseOp, type PoseOp } from '../lib/poseCompose'
 import {
+  createDefaultControlRig,
+  createDefaultIkBlend,
+  createDefaultPinnedWorldPos,
+  createDefaultPins,
   createInstance,
   MAX_INSTANCES,
+  type ControlRig,
   type CharacterInstance,
+  type IkBlend,
+  type PinKey,
+  type Pins,
+  type PinnedWorldPos,
 } from '../lib/instances'
 import type { Pose } from '../lib/poses'
 import type { PoseBlockInstance } from '../types'
 
 export type InteractionMode = 'transform' | 'pose'
-export type PoseGizmoMode = 'legacy' | 'joint'
+export type PoseGizmoMode = 'legacy' | 'joint' | 'cylinder'
+export type CharacterMode = 'preset' | 'controlRig' | 'drag'
 
 export type StoreState = {
   instances: CharacterInstance[]
@@ -20,8 +30,18 @@ export type StoreState = {
   posePresets: Record<string, Pose>
   interactionMode: InteractionMode
   poseGizmoMode: PoseGizmoMode
+  mode: CharacterMode
   selectedBodyPart: BodyPartId | null
   selectedPoseBone: string | null
+  modelUrl: string
+  currentPose: string
+  characterX: number
+  characterY: number
+  characterScale: number
+  controlRig: ControlRig
+  pins: Pins
+  pinnedWorldPos: PinnedWorldPos
+  ikBlend: IkBlend
   backdropUrl: string
   frameWidth: number
   frameHeight: number
@@ -42,6 +62,16 @@ export type StoreState = {
   redoPoseAdjustment: () => void
   resetPoseAdjustments: () => void
   setBasePoseId: (id: string) => void
+  setMode: (mode: CharacterMode) => void
+  setControlRig: (update: Partial<ControlRig>) => void
+  setPin: (key: PinKey, value: boolean) => void
+  setPinnedWorldPos: (key: PinKey, pos: [number, number, number]) => void
+  setIkBlend: (key: keyof IkBlend, value: number) => void
+  setInstanceControlRig: (id: string, update: Partial<ControlRig>) => void
+  setInstancePin: (id: string, key: PinKey, value: boolean) => void
+  setInstancePinnedWorldPos: (id: string, key: PinKey, pos: [number, number, number]) => void
+  setInstanceIkBlend: (id: string, key: keyof IkBlend, value: number) => void
+  setCharacterError: (error: string | null) => void
   primarySelectedId: () => string | null
 }
 
@@ -69,8 +99,18 @@ export const useStore = create<StoreState>((set, get) => ({
   posePresets: {},
   interactionMode: 'transform',
   poseGizmoMode: 'legacy',
+  mode: 'preset',
   selectedBodyPart: null,
   selectedPoseBone: null,
+  modelUrl: '',
+  currentPose: 't_pose',
+  characterX: 0,
+  characterY: 0,
+  characterScale: 1,
+  controlRig: createDefaultControlRig(),
+  pins: createDefaultPins(),
+  pinnedWorldPos: createDefaultPinnedWorldPos(),
+  ikBlend: createDefaultIkBlend(),
   backdropUrl: '/default_backdrop.jpg',
   frameWidth: 16,
   frameHeight: 9,
@@ -125,6 +165,10 @@ export const useStore = create<StoreState>((set, get) => ({
           characterRotationY: inst.characterRotationY,
           basePoseId: inst.basePoseId,
           poseAdjustments: inst.poseAdjustments,
+          controlRig: inst.controlRig,
+          pins: inst.pins,
+          pinnedWorldPos: inst.pinnedWorldPos,
+          ikBlend: inst.ikBlend,
         }
         cb(id, outPatch)
       }
@@ -240,9 +284,60 @@ export const useStore = create<StoreState>((set, get) => ({
         poseAdjustments: [],
         poseAdjustmentPast: [],
         poseAdjustmentFuture: [],
+        controlRig: { ...inst.controlRig, initialized: false },
+        pins: createDefaultPins(),
+        pinnedWorldPos: createDefaultPinnedWorldPos(),
       })),
       selectedBodyPart: null,
       selectedPoseBone: null,
     })
   },
+
+  setMode: (mode) => set({ mode }),
+
+  setControlRig: (update) =>
+    set((state) => ({
+      controlRig: { ...state.controlRig, ...update },
+    })),
+
+  setPin: (key, value) =>
+    set((state) => ({
+      pins: { ...state.pins, [key]: value },
+    })),
+
+  setPinnedWorldPos: (key, pos) =>
+    set((state) => ({
+      pinnedWorldPos: { ...state.pinnedWorldPos, [key]: pos },
+    })),
+
+  setIkBlend: (key, value) =>
+    set((state) => ({
+      ikBlend: { ...state.ikBlend, [key]: value },
+    })),
+
+  setInstanceControlRig: (id, update) => {
+    const inst = get().instances.find((item) => item.id === id)
+    if (!inst) return
+    get().updateInstance(id, { controlRig: { ...inst.controlRig, ...update } })
+  },
+
+  setInstancePin: (id, key, value) => {
+    const inst = get().instances.find((item) => item.id === id)
+    if (!inst) return
+    get().updateInstance(id, { pins: { ...inst.pins, [key]: value } })
+  },
+
+  setInstancePinnedWorldPos: (id, key, pos) => {
+    const inst = get().instances.find((item) => item.id === id)
+    if (!inst) return
+    get().updateInstance(id, { pinnedWorldPos: { ...inst.pinnedWorldPos, [key]: pos } })
+  },
+
+  setInstanceIkBlend: (id, key, value) => {
+    const inst = get().instances.find((item) => item.id === id)
+    if (!inst) return
+    get().updateInstance(id, { ikBlend: { ...inst.ikBlend, [key]: value } })
+  },
+
+  setCharacterError: (error) => set({ characterError: error }),
 }))
