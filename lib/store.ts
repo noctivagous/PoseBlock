@@ -288,29 +288,45 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   undoPoseAdjustment: () => {
-    const primaryId = get().primarySelectedId()
-    if (!primaryId) return
-    const inst = get().instances.find((i) => i.id === primaryId)
-    if (!inst || inst.poseAdjustmentPast.length === 0) return
-    const previous = inst.poseAdjustmentPast[inst.poseAdjustmentPast.length - 1]
-    get().updateInstance(primaryId, {
-      poseAdjustments: previous,
-      poseAdjustmentPast: inst.poseAdjustmentPast.slice(0, -1),
-      poseAdjustmentFuture: [inst.poseAdjustments, ...inst.poseAdjustmentFuture],
+    const { selectedIds } = get()
+    if (selectedIds.length === 0) return
+
+    const changedIds: string[] = []
+    const next = get().instances.map((inst) => {
+      if (!selectedIds.includes(inst.id) || inst.poseAdjustmentPast.length === 0) return inst
+      const previous = inst.poseAdjustmentPast[inst.poseAdjustmentPast.length - 1]
+      changedIds.push(inst.id)
+      return {
+        ...inst,
+        poseAdjustments: previous,
+        poseAdjustmentPast: inst.poseAdjustmentPast.slice(0, -1),
+        poseAdjustmentFuture: [inst.poseAdjustments, ...inst.poseAdjustmentFuture],
+      }
     })
+    if (changedIds.length === 0) return
+    set({ instances: next })
+    notifyInstanceChange(get().onInstanceChange, next, changedIds)
   },
 
   redoPoseAdjustment: () => {
-    const primaryId = get().primarySelectedId()
-    if (!primaryId) return
-    const inst = get().instances.find((i) => i.id === primaryId)
-    if (!inst || inst.poseAdjustmentFuture.length === 0) return
-    const next = inst.poseAdjustmentFuture[0]
-    get().updateInstance(primaryId, {
-      poseAdjustments: next,
-      poseAdjustmentPast: [...inst.poseAdjustmentPast, inst.poseAdjustments],
-      poseAdjustmentFuture: inst.poseAdjustmentFuture.slice(1),
+    const { selectedIds } = get()
+    if (selectedIds.length === 0) return
+
+    const changedIds: string[] = []
+    const next = get().instances.map((inst) => {
+      if (!selectedIds.includes(inst.id) || inst.poseAdjustmentFuture.length === 0) return inst
+      const redo = inst.poseAdjustmentFuture[0]
+      changedIds.push(inst.id)
+      return {
+        ...inst,
+        poseAdjustments: redo,
+        poseAdjustmentPast: [...inst.poseAdjustmentPast, inst.poseAdjustments],
+        poseAdjustmentFuture: inst.poseAdjustmentFuture.slice(1),
+      }
     })
+    if (changedIds.length === 0) return
+    set({ instances: next })
+    notifyInstanceChange(get().onInstanceChange, next, changedIds)
   },
 
   resetPoseAdjustments: () => {

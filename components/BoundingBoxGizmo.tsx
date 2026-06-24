@@ -59,13 +59,10 @@ const GIZMO_PAD = 0.18
 function updateGizmoAnchors(
   size: THREE.Vector3,
   top: THREE.Group | null,
-  topRight: THREE.Group | null,
   bottom: THREE.Group | null,
 ) {
-  const halfX = size.x / 2
   const halfY = size.y / 2
   top?.position.set(0, halfY + GIZMO_PAD * 1.6, 0)
-  topRight?.position.set(halfX + GIZMO_PAD, halfY + GIZMO_PAD * 1.2, 0)
   bottom?.position.set(0, -halfY - GIZMO_PAD, 0)
 }
 
@@ -83,16 +80,15 @@ export function TransformGizmoControls({
   endScaleDrag,
 }: TransformGizmoControlsProps) {
   const topRef = useRef<THREE.Group>(null)
-  const topRightRef = useRef<THREE.Group>(null)
   const bottomRef = useRef<THREE.Group>(null)
 
   useLayoutEffect(() => {
-    if (size) updateGizmoAnchors(size, topRef.current, topRightRef.current, bottomRef.current)
+    if (size) updateGizmoAnchors(size, topRef.current, bottomRef.current)
   }, [size])
 
   useFrame(() => {
     if (sizeRef?.current) {
-      updateGizmoAnchors(sizeRef.current, topRef.current, topRightRef.current, bottomRef.current)
+      updateGizmoAnchors(sizeRef.current, topRef.current, bottomRef.current)
     }
   })
 
@@ -101,35 +97,31 @@ export function TransformGizmoControls({
       <group ref={topRef}>
         <Html center style={{ pointerEvents: 'auto' }}>
           <div className="flex flex-col items-center gap-1">
-            <div className="flex gap-1">
-              <GizmoBtn label="↺" title="Rotate left" onClick={rotateLeft} />
-              <GizmoBtn label="↻" title="Rotate right" onClick={rotateRight} />
+            <div className="relative">
+              <div className="flex gap-1">
+                <GizmoBtn label="↺" title="Rotate left" onClick={rotateLeft} />
+                <GizmoBtn label="↻" title="Rotate right" onClick={rotateRight} />
+              </div>
+              <button
+                type="button"
+                title="Drag up/down to scale"
+                className="absolute left-full top-0 ml-1 flex h-5 flex-col items-center justify-center gap-0 rounded-none border border-cyan-300/80 bg-cyan-900/80 px-1 py-0 text-[8px] leading-none text-cyan-100 shadow hover:bg-cyan-800/90"
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  onScalePointerDown(e)
+                }}
+                onPointerMove={onScalePointerMove}
+                onPointerUp={endScaleDrag}
+                onPointerCancel={endScaleDrag}
+              >
+                <span>scale</span>
+                <span>(drag)</span>
+              </button>
             </div>
             <div className="flex gap-1">
               <GizmoBtn label="↑" title="Move closer (larger)" onClick={dollyIn} />
               <GizmoBtn label="↓" title="Move farther (smaller)" onClick={dollyOut} />
             </div>
-          </div>
-        </Html>
-      </group>
-
-      <group ref={topRightRef}>
-        <Html style={{ pointerEvents: 'auto' }}>
-          <div className="-translate-x-full -translate-y-full">
-            <button
-              type="button"
-              title="Drag up/down to scale"
-              className="rounded border border-cyan-300/80 bg-cyan-900/80 px-1.5 py-0.5 text-[9px] leading-none text-cyan-100 shadow hover:bg-cyan-800/90"
-              onPointerDown={(e) => {
-                e.stopPropagation()
-                onScalePointerDown(e)
-              }}
-              onPointerMove={onScalePointerMove}
-              onPointerUp={endScaleDrag}
-              onPointerCancel={endScaleDrag}
-            >
-              drag-scale
-            </button>
           </div>
         </Html>
       </group>

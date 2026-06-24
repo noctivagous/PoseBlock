@@ -19,6 +19,7 @@ import {
 import { dollyAnchor } from '../lib/characterTransform'
 import { getAllPosePresets } from '../lib/posePresets'
 import { useStore } from '../lib/store'
+import { findPoseModelUrl, useAnimationPoseSample } from '../lib/useAnimationPoseSample'
 import { useMemo } from 'react'
 
 const MIN_SCALE = 0.15
@@ -150,25 +151,52 @@ export function PoseAdjustToolbar() {
   const primaryId = selectedIds[0] ?? null
   const primary = instances.find((i) => i.id === primaryId)
   const posePresets = useStore((s) => s.posePresets)
+  const poseModels = useStore((s) => s.poseModels)
   const pushPoseOp = useStore((s) => s.pushPoseOp)
   const undoPoseAdjustment = useStore((s) => s.undoPoseAdjustment)
   const redoPoseAdjustment = useStore((s) => s.redoPoseAdjustment)
   const resetPoseAdjustments = useStore((s) => s.resetPoseAdjustments)
   const setBasePoseId = useStore((s) => s.setBasePoseId)
   const setInstanceIkBlend = useStore((s) => s.setInstanceIkBlend)
-  const updateInstance = useStore((s) => s.updateInstance)
+  const updateSelectedInstances = useStore((s) => s.updateSelectedInstances)
   const set = useStore((s) => s.set)
 
   const basePoseId = primary?.basePoseId ?? ''
   const poseAdjustments = primary?.poseAdjustments ?? []
 
+  const selectedInstances = useMemo(
+    () => instances.filter((i) => selectedIds.includes(i.id)),
+    [instances, selectedIds],
+  )
+  const canUndo = selectedInstances.some((i) => i.poseAdjustmentPast.length > 0)
+  const canRedo = selectedInstances.some((i) => i.poseAdjustmentFuture.length > 0)
+
+  const animationModelUrl = useMemo(() => {
+    if (!primary || primary.poseSourceMode !== 'animation') return null
+    return findPoseModelUrl(poseModels, primary.animationPoseModelId)
+  }, [primary, poseModels])
+
+  const useAnimation =
+    primary?.poseSourceMode === 'animation' && Boolean(animationModelUrl)
+
+  const { pose: animationPose } = useAnimationPoseSample(
+    animationModelUrl,
+    primary?.animationClip ?? null,
+    primary?.animationFrame ?? 0,
+    useAnimation,
+  )
+
   const availablePoses = useMemo(() => getAllPosePresets(posePresets), [posePresets])
   const composedPose = useMemo(() => {
     if (!primary) return null
-    const base = availablePoses[basePoseId]
+    let base =
+      primary.poseSourceMode === 'animation'
+        ? animationPose
+        : availablePoses[primary.basePoseId]
+    if (!base || Object.keys(base).length === 0) base = availablePoses.t_pose
     if (!base) return null
     return composePose(base, poseAdjustments)
-  }, [primary, availablePoses, basePoseId, poseAdjustments])
+  }, [primary, availablePoses, animationPose, poseAdjustments])
 
   const summary = useMemo(() => summarizePoseOps(poseAdjustments), [poseAdjustments])
 
@@ -234,38 +262,41 @@ export function PoseAdjustToolbar() {
     )
   }
 
-  const {
-    poseAdjustmentPast,
-    poseAdjustmentFuture,
-    scale: characterScale,
-    characterZ,
-  } = primary
-
   const scaleUp = () =>
-    updateInstance(primary.id, {
-      scale: Math.min(MAX_SCALE, characterScale + SCALE_STEP),
-    })
+    updateSelectedInstances((inst) => ({
+      scale: Math.min(MAX_SCALE, inst.scale + SCALE_STEP),
+    }))
   const scaleDown = () =>
-    updateInstance(primary.id, {
-      scale: Math.max(MIN_SCALE, characterScale - SCALE_STEP),
-    })
+    updateSelectedInstances((inst) => ({
+      scale: Math.max(MIN_SCALE, inst.scale - SCALE_STEP),
+    }))
 
   const dolly = (direction: 1 | -1) => {
-    updateInstance(primary.id, dollyAnchor({ scale: characterScale }, characterZ, direction))
+    updateSelectedInstances((inst) =>
+      dollyAnchor({ scale: inst.scale }, inst.characterZ, direction),
+    )
   }
 
   const savePose = async () => {
     if (!composedPose) return
-    const suggested = `${basePoseId}_custom`
+    const suggested =
+      primary.poseSourceMode === 'animation'
+        ? `${primary.animationPoseModelId || 'anim'}_f${primary.animationFrame ?? 0}_custom`
+        : `${basePoseId}_custom`
     const name = window.prompt('Save pose as (filename without .json):', suggested)
     if (!name) return
     const slug = name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '_')
     if (!slug) return
 
+    const sourceBase =
+      primary.poseSourceMode === 'animation'
+        ? `anim:${primary.animationPoseModelId}:${primary.animationClip ?? ''}:${primary.animationFrame ?? 0}`
+        : basePoseId
+
     const res = await fetch('/api/poses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: slug, pose: composedPose, sourceBase: basePoseId, adjustments: poseAdjustments }),
+      body: JSON.stringify({ name: slug, pose: composedPose, sourceBase, adjustments: poseAdjustments }),
     })
     if (!res.ok) { window.alert('Could not save pose preset.'); return }
 
@@ -282,11 +313,11 @@ export function PoseAdjustToolbar() {
       {/* Undo / redo / ops count */}
       <div className="flex items-center gap-1">
         <span className="flex-1 text-[10px] text-white/50">Adjust pose · {poseAdjustments.length} ops</span>
-        <button type="button" onClick={undoPoseAdjustment} disabled={poseAdjustmentPast.length === 0}
+        <button type="button" onClick={undoPoseAdjustment} disabled={!canUndo}
           className="select-none rounded bg-zinc-800 px-2 py-0.5 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
           Undo
         </button>
-        <button type="button" onClick={redoPoseAdjustment} disabled={poseAdjustmentFuture.length === 0}
+        <button type="button" onClick={redoPoseAdjustment} disabled={!canRedo}
           className="select-none rounded bg-zinc-800 px-2 py-0.5 text-xs text-white/90 hover:bg-zinc-700 disabled:opacity-40">
           Redo
         </button>
