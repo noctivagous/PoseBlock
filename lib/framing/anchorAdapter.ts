@@ -104,17 +104,23 @@ export function applyAnchorToGroup(
   characterRotationX: number,
   frameWidth: number,
   frameHeight: number,
+  characterRotationZ = 0,
 ): void {
   const world = anchorToWorldTransform({
     anchor,
     characterZ,
     characterRotationX,
+    characterRotationZ,
     frameWidth,
     frameHeight,
   })
   const DEG2RAD = Math.PI / 180
   group.position.set(world.worldX, world.worldY, world.worldZ)
-  group.rotation.set(world.characterRotationX * DEG2RAD, 0, 0)
+  group.rotation.set(
+    world.characterRotationX * DEG2RAD,
+    0,
+    characterRotationZ * DEG2RAD,
+  )
   group.scale.setScalar(displayScale(world.characterScale, world.worldZ))
 }
 
@@ -123,7 +129,6 @@ export function syncAnchorFromGroup(
   frameWidth: number,
   frameHeight: number,
   characterRotationY = 0,
-  characterRotationZ = 0,
 ): FeetAnchor & { characterZ: number; characterRotationX: number; characterRotationZ: number } {
   const DEG2RAD = Math.PI / 180
   return worldTransformToAnchor({
@@ -133,7 +138,7 @@ export function syncAnchorFromGroup(
     characterScale: baseScaleFromDisplay(group.scale.x, group.position.z),
     characterRotationX: group.rotation.x / DEG2RAD,
     characterRotationY,
-    characterRotationZ,
+    characterRotationZ: group.rotation.z / DEG2RAD,
     frameWidth,
     frameHeight,
   })

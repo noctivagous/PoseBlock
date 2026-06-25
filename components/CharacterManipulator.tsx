@@ -78,7 +78,6 @@ function CharacterModelContent({
 
   const skeletonRef = useRef<THREE.Skeleton | null>(null)
   const yawSpinRef = useRef<THREE.Group>(null)
-  const rollSpinRef = useRef<THREE.Group>(null)
   const solverRef = useRef<CCDIKSolver | null>(null)
   const fkPoseRef = useRef<Record<string, number[]>>({})
   const rigPoseSigRef = useRef<string>('')
@@ -142,16 +141,11 @@ function CharacterModelContent({
     return { scale, yOffset, size, center }
   }, [clonedScene])
 
-  const rollPivot = useMemo(
+  const pivots = useMemo(
     () => mannequinPivotOffsets(fit.center, fit.size, fit.scale, fit.yOffset),
     [fit],
   )
-  const modelCenter = rollPivot.modelCenter
-  const rollPivotOffset = rollPivot.rollPivot
-  const rollPivotNeg = useMemo(
-    () => rollPivotOffset.clone().multiplyScalar(-1),
-    [rollPivotOffset],
-  )
+  const modelCenter = pivots.modelCenter
   const modelCenterNeg = useMemo(
     () => modelCenter.clone().multiplyScalar(-1),
     [modelCenter],
@@ -372,10 +366,8 @@ function CharacterModelContent({
       instance.characterRotationX,
       frameWidth,
       frameHeight,
+      instance.characterRotationZ,
     )
-    if (rollSpinRef.current) {
-      rollSpinRef.current.rotation.z = instance.characterRotationZ * DEG2RAD
-    }
     if (yawSpinRef.current) {
       yawSpinRef.current.rotation.y = instance.rotation * DEG2RAD
     }
@@ -407,9 +399,6 @@ function CharacterModelContent({
       yawSpinRef.current?.rotation.y !== undefined
         ? yawSpinRef.current.rotation.y / DEG2RAD
         : instance.rotation,
-      rollSpinRef.current?.rotation.z !== undefined
-        ? rollSpinRef.current.rotation.z / DEG2RAD
-        : instance.characterRotationZ,
     )
     updateInstance(instanceId, {
       x: synced.x,
@@ -555,7 +544,7 @@ function CharacterModelContent({
         rotation={[
           world.characterRotationX * DEG2RAD,
           0,
-          0,
+          instance.characterRotationZ * DEG2RAD,
         ]}
         scale={displayScale(world.characterScale, world.worldZ)}
         onPointerDown={onModelPointerDown}
@@ -566,16 +555,13 @@ function CharacterModelContent({
         <group position={modelCenter}>
           <group ref={yawSpinRef} rotation={[0, instance.rotation * DEG2RAD, 0]}>
             <group position={modelCenterNeg}>
-              <group position={rollPivotOffset}>
-                <group ref={rollSpinRef} rotation={[0, 0, instance.characterRotationZ * DEG2RAD]}>
-                  <group position={rollPivotNeg}>
-                    <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
+              <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
                       <primitive object={clonedScene} />
                       {isSelected && (
                         <mesh
                           raycast={() => null}
                           ref={(node) =>
-                            registerSelectionBounds(instanceId, node, rollPivot)
+                            registerSelectionBounds(instanceId, node, pivots)
                           }
                           position={[fit.center.x, fit.center.y, fit.center.z]}
                           scale={[fit.size.x, fit.size.y, fit.size.z]}
@@ -598,7 +584,7 @@ function CharacterModelContent({
                     instanceId={instanceId}
                     size={fit.size}
                     center={fit.center}
-                    pivots={rollPivot}
+                    pivots={pivots}
                   />
                 )}
                 {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'legacy' && (
@@ -613,9 +599,6 @@ function CharacterModelContent({
                 {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'cylinder' && (
                   <PoseCylinderGizmo skeleton={skeleton} fitScale={fit.scale} />
                 )}
-                    </group>
-                  </group>
-                </group>
               </group>
             </group>
           </group>

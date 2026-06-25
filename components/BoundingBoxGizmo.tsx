@@ -5,7 +5,6 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
 import {
-  applyMannequinRollZKeepingFeetWorld,
   dollyAnchor,
   rotateMannequinYawAroundModelCenter,
   type MannequinPivotOffsets,
@@ -18,7 +17,6 @@ const ROT_STEP = 15
 const PITCH_STEP = 12
 const TILT_STEP = 12
 const MAX_PITCH = 160
-const MAX_TILT = 45
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 function GizmoBtn({
@@ -177,26 +175,6 @@ export function BoundingBoxGizmo({ instanceId, size, center, pivots }: BoundingB
 
   const patch = (partial: Partial<CharacterInstance>) => updateInstance(instanceId, partial)
 
-  const applyTilt = (delta: number) => {
-    if (!instance || delta === 0) return
-    patch(
-      applyMannequinRollZKeepingFeetWorld({
-        x: instance.x,
-        y: instance.y,
-        scale: instance.scale,
-        rotation: instance.rotation,
-        characterZ: instance.characterZ,
-        characterRotationX: instance.characterRotationX,
-        characterRotationZ: instance.characterRotationZ,
-        modelCenter: pivots.modelCenter,
-        rollPivot: pivots.rollPivot,
-        deltaRotationDeg: delta,
-        frameWidth,
-        frameHeight,
-      }),
-    )
-  }
-
   const rotateYaw = (deltaRotationDeg: number) => {
     if (!instance) return
     patch(
@@ -209,7 +187,7 @@ export function BoundingBoxGizmo({ instanceId, size, center, pivots }: BoundingB
         characterRotationX: instance.characterRotationX,
         characterRotationZ: instance.characterRotationZ,
         modelCenter: pivots.modelCenter,
-        rollPivot: pivots.rollPivot,
+        feetFromYawNeg: pivots.feetFromYawNeg,
         deltaRotationDeg,
         frameWidth,
         frameHeight,
@@ -278,14 +256,12 @@ export function BoundingBoxGizmo({ instanceId, size, center, pivots }: BoundingB
             ),
           })
         }
-        tiltLeft={() => {
-          const next = clamp(instance.characterRotationZ + TILT_STEP, -MAX_TILT, MAX_TILT)
-          applyTilt(next - instance.characterRotationZ)
-        }}
-        tiltRight={() => {
-          const next = clamp(instance.characterRotationZ - TILT_STEP, -MAX_TILT, MAX_TILT)
-          applyTilt(next - instance.characterRotationZ)
-        }}
+        tiltLeft={() =>
+          patch({ characterRotationZ: instance.characterRotationZ + TILT_STEP })
+        }
+        tiltRight={() =>
+          patch({ characterRotationZ: instance.characterRotationZ - TILT_STEP })
+        }
         onScalePointerDown={onScalePointerDown}
         onScalePointerMove={onScalePointerMove}
         endScaleDrag={endScaleDrag}

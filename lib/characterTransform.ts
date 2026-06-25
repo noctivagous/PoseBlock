@@ -30,19 +30,6 @@ export function baseScaleFromDisplay(display: number, z: number): number {
   return factor > 0 ? display / factor : display
 }
 
-export function bboxBottomCenterPivot(
-  center: THREE.Vector3,
-  size: THREE.Vector3,
-  fitScale: number,
-  yOffset: number,
-): THREE.Vector3 {
-  return new THREE.Vector3(
-    center.x * fitScale,
-    (center.y - size.y / 2) * fitScale + yOffset,
-    center.z * fitScale,
-  )
-}
-
 export function bboxModelCenterPivot(
   center: THREE.Vector3,
   fitScale: number,
@@ -57,7 +44,8 @@ export function bboxModelCenterPivot(
 
 export type MannequinPivotOffsets = {
   modelCenter: THREE.Vector3
-  rollPivot: THREE.Vector3
+  /** Feet origin in yawNeg local space (same anchor as dolly / pitch). */
+  feetFromYawNeg: THREE.Vector3
 }
 
 export function mannequinPivotOffsets(
@@ -66,11 +54,9 @@ export function mannequinPivotOffsets(
   fitScale: number,
   yOffset: number,
 ): MannequinPivotOffsets {
-  const modelCenter = bboxModelCenterPivot(center, fitScale, yOffset)
-  const bottomCenter = bboxBottomCenterPivot(center, size, fitScale, yOffset)
   return {
-    modelCenter,
-    rollPivot: bottomCenter.clone().sub(modelCenter),
+    modelCenter: bboxModelCenterPivot(center, fitScale, yOffset),
+    feetFromYawNeg: new THREE.Vector3(0, yOffset, 0),
   }
 }
 
@@ -85,7 +71,7 @@ export function computeMannequinFeetWorld(params: {
   characterRotationX: number
   characterRotationZ: number
   modelCenter: THREE.Vector3
-  rollPivot: THREE.Vector3
+  feetFromYawNeg: THREE.Vector3
   frameWidth: number
   frameHeight: number
 }): THREE.Vector3 {
@@ -102,6 +88,7 @@ export function computeMannequinFeetWorld(params: {
   const root = new THREE.Object3D()
   root.position.set(world.worldX, world.worldY, world.worldZ)
   root.rotation.x = world.characterRotationX * DEG2RAD
+  root.rotation.z = params.characterRotationZ * DEG2RAD
   root.scale.setScalar(displayScale(world.characterScale, world.worldZ))
 
   const yawPivot = new THREE.Object3D()
@@ -116,20 +103,8 @@ export function computeMannequinFeetWorld(params: {
   yawNeg.position.copy(params.modelCenter).multiplyScalar(-1)
   yawSpin.add(yawNeg)
 
-  const rollPivotGroup = new THREE.Object3D()
-  rollPivotGroup.position.copy(params.rollPivot)
-  yawNeg.add(rollPivotGroup)
-
-  const rollSpin = new THREE.Object3D()
-  rollSpin.rotation.z = params.characterRotationZ * DEG2RAD
-  rollPivotGroup.add(rollSpin)
-
-  const rollNeg = new THREE.Object3D()
-  rollNeg.position.copy(params.rollPivot).multiplyScalar(-1)
-  rollSpin.add(rollNeg)
-
   root.updateMatrixWorld(true)
-  return rollNeg.localToWorld(_feetWorld.set(0, 0, 0))
+  return yawNeg.localToWorld(_feetWorld.copy(params.feetFromYawNeg))
 }
 
 export function rotateMannequinYawAroundModelCenter(params: {
@@ -141,7 +116,7 @@ export function rotateMannequinYawAroundModelCenter(params: {
   characterRotationX: number
   characterRotationZ: number
   modelCenter: THREE.Vector3
-  rollPivot: THREE.Vector3
+  feetFromYawNeg: THREE.Vector3
   deltaRotationDeg: number
   frameWidth: number
   frameHeight: number
@@ -168,46 +143,6 @@ export function rotateMannequinYawAroundModelCenter(params: {
     frameHeight: params.frameHeight,
   })
   return { x: synced.x, y: synced.y, rotation: newRotation, characterRotationY: newRotation }
-}
-
-/** Apply roll (tilt) while keeping visual feet at the same world position. */
-export function applyMannequinRollZKeepingFeetWorld(params: {
-  x: number
-  y: number
-  scale: number
-  rotation: number
-  characterZ: number
-  characterRotationX: number
-  characterRotationZ: number
-  modelCenter: THREE.Vector3
-  rollPivot: THREE.Vector3
-  deltaRotationDeg: number
-  frameWidth: number
-  frameHeight: number
-}): { x: number; y: number; characterRotationZ: number } {
-  const targetFeet = computeMannequinFeetWorld(params)
-  const newRotationZ = params.characterRotationZ + params.deltaRotationDeg
-  const newFeet = computeMannequinFeetWorld({ ...params, characterRotationZ: newRotationZ })
-  const world = anchorToWorldTransform({
-    anchor: { x: params.x, y: params.y, scale: params.scale, rotation: params.rotation },
-    characterZ: params.characterZ,
-    characterRotationX: params.characterRotationX,
-    characterRotationZ: params.characterRotationZ,
-    frameWidth: params.frameWidth,
-    frameHeight: params.frameHeight,
-  })
-  const synced = worldTransformToAnchor({
-    worldX: world.worldX + (targetFeet.x - newFeet.x),
-    worldY: world.worldY + (targetFeet.y - newFeet.y),
-    worldZ: params.characterZ,
-    characterScale: world.characterScale,
-    characterRotationX: params.characterRotationX,
-    characterRotationY: params.rotation,
-    characterRotationZ: newRotationZ,
-    frameWidth: params.frameWidth,
-    frameHeight: params.frameHeight,
-  })
-  return { x: synced.x, y: synced.y, characterRotationZ: newRotationZ }
 }
 
 export function dollyAnchor(
