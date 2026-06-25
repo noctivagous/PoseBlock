@@ -25,12 +25,14 @@ export type WorldTransform = {
   characterScale: number
   characterRotationX: number
   characterRotationY: number
+  characterRotationZ: number
 }
 
 export function anchorToWorldTransform(input: {
   anchor: FeetAnchor
   characterZ: number
   characterRotationX: number
+  characterRotationZ?: number
   frameWidth: number
   frameHeight: number
 }): WorldTransform {
@@ -52,6 +54,7 @@ export function anchorToWorldTransform(input: {
     characterScale,
     characterRotationX: input.characterRotationX,
     characterRotationY: rotation,
+    characterRotationZ: input.characterRotationZ ?? 0,
   }
 }
 
@@ -62,9 +65,10 @@ export function worldTransformToAnchor(input: {
   characterScale: number
   characterRotationX: number
   characterRotationY: number
+  characterRotationZ: number
   frameWidth: number
   frameHeight: number
-}): FeetAnchor & { characterZ: number; characterRotationX: number } {
+}): FeetAnchor & { characterZ: number; characterRotationX: number; characterRotationZ: number } {
   const aspect = parseAspectRatio(input.frameWidth, input.frameHeight)
   const viewWidth = VIEW_HEIGHT * aspect
 
@@ -88,6 +92,7 @@ export function worldTransformToAnchor(input: {
     rotation: input.characterRotationY,
     characterZ: input.worldZ,
     characterRotationX: input.characterRotationX,
+    characterRotationZ: input.characterRotationZ,
   }
 }
 
@@ -109,11 +114,7 @@ export function applyAnchorToGroup(
   })
   const DEG2RAD = Math.PI / 180
   group.position.set(world.worldX, world.worldY, world.worldZ)
-  group.rotation.set(
-    world.characterRotationX * DEG2RAD,
-    world.characterRotationY * DEG2RAD,
-    0,
-  )
+  group.rotation.set(world.characterRotationX * DEG2RAD, 0, 0)
   group.scale.setScalar(displayScale(world.characterScale, world.worldZ))
 }
 
@@ -121,7 +122,9 @@ export function syncAnchorFromGroup(
   group: { position: { x: number; y: number; z: number }; rotation: { x: number; y: number; z: number }; scale: { x: number } },
   frameWidth: number,
   frameHeight: number,
-): FeetAnchor & { characterZ: number; characterRotationX: number } {
+  characterRotationY = 0,
+  characterRotationZ = 0,
+): FeetAnchor & { characterZ: number; characterRotationX: number; characterRotationZ: number } {
   const DEG2RAD = Math.PI / 180
   return worldTransformToAnchor({
     worldX: group.position.x,
@@ -129,7 +132,8 @@ export function syncAnchorFromGroup(
     worldZ: group.position.z,
     characterScale: baseScaleFromDisplay(group.scale.x, group.position.z),
     characterRotationX: group.rotation.x / DEG2RAD,
-    characterRotationY: group.rotation.y / DEG2RAD,
+    characterRotationY,
+    characterRotationZ,
     frameWidth,
     frameHeight,
   })

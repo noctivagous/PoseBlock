@@ -21,6 +21,7 @@ export type PoseBlockInstance = {
   characterZ?: number
   characterRotationX?: number
   characterRotationY?: number
+  characterRotationZ?: number
   controlRig?: {
     initialized: boolean
     head: [number, number, number]

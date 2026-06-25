@@ -1,12 +1,29 @@
 import type * as THREE from 'three'
+import type { MannequinPivotOffsets } from './characterTransform'
 
-const boundsById = new Map<string, THREE.Object3D>()
+export type SelectionBoundsMeta = {
+  object: THREE.Object3D
+  pivots: MannequinPivotOffsets
+}
 
-export function registerSelectionBounds(id: string, object: THREE.Object3D | null): void {
-  if (object) boundsById.set(id, object)
-  else boundsById.delete(id)
+const boundsById = new Map<string, SelectionBoundsMeta>()
+
+export function registerSelectionBounds(
+  id: string,
+  object: THREE.Object3D | null,
+  pivots?: MannequinPivotOffsets,
+): void {
+  if (object && pivots) {
+    boundsById.set(id, { object, pivots })
+  } else {
+    boundsById.delete(id)
+  }
 }
 
 export function getSelectionBounds(id: string): THREE.Object3D | undefined {
+  return boundsById.get(id)?.object
+}
+
+export function getSelectionBoundsMeta(id: string): SelectionBoundsMeta | undefined {
   return boundsById.get(id)
 }

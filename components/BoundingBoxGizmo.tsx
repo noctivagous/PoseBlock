@@ -4,14 +4,21 @@ import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { dollyAnchor } from '../lib/characterTransform'
+import {
+  applyMannequinRollZKeepingFeetWorld,
+  dollyAnchor,
+  rotateMannequinYawAroundModelCenter,
+  type MannequinPivotOffsets,
+} from '../lib/characterTransform'
 import { clampMannequinScale } from '../lib/framing'
 import type { CharacterInstance } from '../lib/instances'
 import { useStore } from '../lib/store'
 
 const ROT_STEP = 15
 const PITCH_STEP = 12
+const TILT_STEP = 12
 const MAX_PITCH = 160
+const MAX_TILT = 45
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 function GizmoBtn({
@@ -49,6 +56,8 @@ export type TransformGizmoControlsProps = {
   dollyOut: () => void
   pitchUp: () => void
   pitchDown: () => void
+  tiltLeft: () => void
+  tiltRight: () => void
   onScalePointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void
   onScalePointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void
   endScaleDrag: (e: React.PointerEvent<HTMLButtonElement>) => void
@@ -75,6 +84,8 @@ export function TransformGizmoControls({
   dollyOut,
   pitchUp,
   pitchDown,
+  tiltLeft,
+  tiltRight,
   onScalePointerDown,
   onScalePointerMove,
   endScaleDrag,
@@ -99,8 +110,8 @@ export function TransformGizmoControls({
           <div className="flex flex-col items-center gap-1">
             <div className="relative">
               <div className="flex gap-1">
-                <GizmoBtn label="↺" title="Rotate left" onClick={rotateLeft} />
-                <GizmoBtn label="↻" title="Rotate right" onClick={rotateRight} />
+                <GizmoBtn label="↻" title="Rotate left" onClick={rotateLeft} />
+                <GizmoBtn label="↺" title="Rotate right" onClick={rotateRight} />
               </div>
               <button
                 type="button"
@@ -128,9 +139,17 @@ export function TransformGizmoControls({
 
       <group ref={bottomRef}>
         <Html center style={{ pointerEvents: 'auto' }}>
-          <div className="flex gap-1">
-            <GizmoBtn label="P+" title="Pitch toward camera" onClick={pitchUp} />
-            <GizmoBtn label="P-" title="Pitch feet toward camera" onClick={pitchDown} />
+          <div className="relative">
+            <div className="flex gap-1">
+              <GizmoBtn label="P+" title="Pitch toward camera" onClick={pitchUp} />
+              <GizmoBtn label="P-" title="Pitch feet toward camera" onClick={pitchDown} />
+            </div>
+            <div className="absolute right-full top-0 mr-1">
+              <GizmoBtn label="↙" title="Tilt left" onClick={tiltLeft} />
+            </div>
+            <div className="absolute left-full top-0 ml-1">
+              <GizmoBtn label="↘" title="Tilt right" onClick={tiltRight} />
+            </div>
           </div>
         </Html>
       </group>
@@ -142,10 +161,13 @@ type BoundingBoxGizmoProps = {
   instanceId: string
   size: THREE.Vector3
   center: THREE.Vector3
+  pivots: MannequinPivotOffsets
 }
 
-export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoProps) {
+export function BoundingBoxGizmo({ instanceId, size, center, pivots }: BoundingBoxGizmoProps) {
   const instance = useStore((s) => s.instances.find((i) => i.id === instanceId))
+  const frameWidth = useStore((s) => s.frameWidth)
+  const frameHeight = useStore((s) => s.frameHeight)
   const updateInstance = useStore((s) => s.updateInstance)
   const scaleDrag = useRef<{ startScale: number; startY: number; pointerId: number } | null>(
     null,
@@ -154,6 +176,46 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
   if (!instance) return null
 
   const patch = (partial: Partial<CharacterInstance>) => updateInstance(instanceId, partial)
+
+  const applyTilt = (delta: number) => {
+    if (!instance || delta === 0) return
+    patch(
+      applyMannequinRollZKeepingFeetWorld({
+        x: instance.x,
+        y: instance.y,
+        scale: instance.scale,
+        rotation: instance.rotation,
+        characterZ: instance.characterZ,
+        characterRotationX: instance.characterRotationX,
+        characterRotationZ: instance.characterRotationZ,
+        modelCenter: pivots.modelCenter,
+        rollPivot: pivots.rollPivot,
+        deltaRotationDeg: delta,
+        frameWidth,
+        frameHeight,
+      }),
+    )
+  }
+
+  const rotateYaw = (deltaRotationDeg: number) => {
+    if (!instance) return
+    patch(
+      rotateMannequinYawAroundModelCenter({
+        x: instance.x,
+        y: instance.y,
+        scale: instance.scale,
+        rotation: instance.rotation,
+        characterZ: instance.characterZ,
+        characterRotationX: instance.characterRotationX,
+        characterRotationZ: instance.characterRotationZ,
+        modelCenter: pivots.modelCenter,
+        rollPivot: pivots.rollPivot,
+        deltaRotationDeg,
+        frameWidth,
+        frameHeight,
+      }),
+    )
+  }
 
   const onScalePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation()
@@ -181,7 +243,7 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
 
   return (
     <group position={center}>
-      <mesh scale={[size.x, size.y, size.z]}>
+      <mesh raycast={() => null} scale={[size.x, size.y, size.z]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial
           color="#38bdf8"
@@ -194,8 +256,8 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
 
       <TransformGizmoControls
         size={size}
-        rotateLeft={() => patch({ rotation: instance.rotation - ROT_STEP })}
-        rotateRight={() => patch({ rotation: instance.rotation + ROT_STEP })}
+        rotateLeft={() => rotateYaw(-ROT_STEP)}
+        rotateRight={() => rotateYaw(ROT_STEP)}
         dollyIn={() => patch(dollyAnchor({ scale: instance.scale }, instance.characterZ, 1))}
         dollyOut={() => patch(dollyAnchor({ scale: instance.scale }, instance.characterZ, -1))}
         pitchUp={() =>
@@ -216,6 +278,14 @@ export function BoundingBoxGizmo({ instanceId, size, center }: BoundingBoxGizmoP
             ),
           })
         }
+        tiltLeft={() => {
+          const next = clamp(instance.characterRotationZ + TILT_STEP, -MAX_TILT, MAX_TILT)
+          applyTilt(next - instance.characterRotationZ)
+        }}
+        tiltRight={() => {
+          const next = clamp(instance.characterRotationZ - TILT_STEP, -MAX_TILT, MAX_TILT)
+          applyTilt(next - instance.characterRotationZ)
+        }}
         onScalePointerDown={onScalePointerDown}
         onScalePointerMove={onScalePointerMove}
         endScaleDrag={endScaleDrag}

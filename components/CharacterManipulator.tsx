@@ -7,11 +7,12 @@ import { SkeletonUtils } from 'three-stdlib'
 import * as THREE from 'three'
 import { CCDIKSolver } from 'three/examples/jsm/animation/CCDIKSolver.js'
 import { isFbxModelUrl } from '../lib/characterModels'
-import { displayScale } from '../lib/characterTransform'
+import { displayScale, mannequinPivotOffsets } from '../lib/characterTransform'
 import {
   anchorToWorldTransform,
   applyAnchorToGroup,
   syncAnchorFromGroup,
+  worldTransformToAnchor,
 } from '../lib/framing/anchorAdapter'
 import { alignSkeletonToMixamoBind } from '../lib/mixamoBind'
 import { composePose } from '../lib/poseCompose'
@@ -67,6 +68,7 @@ function CharacterModelContent({
   const poseGizmoMode = useStore((s) => s.poseGizmoMode)
   const mode = useStore((s) => s.mode)
   const updateInstance = useStore((s) => s.updateInstance)
+  const updateSelectedInstances = useStore((s) => s.updateSelectedInstances)
   const setInstanceControlRig = useStore((s) => s.setInstanceControlRig)
   const setInstancePin = useStore((s) => s.setInstancePin)
   const setInstancePinnedWorldPos = useStore((s) => s.setInstancePinnedWorldPos)
@@ -75,6 +77,8 @@ function CharacterModelContent({
   const set = useStore((s) => s.set)
 
   const skeletonRef = useRef<THREE.Skeleton | null>(null)
+  const yawSpinRef = useRef<THREE.Group>(null)
+  const rollSpinRef = useRef<THREE.Group>(null)
   const solverRef = useRef<CCDIKSolver | null>(null)
   const fkPoseRef = useRef<Record<string, number[]>>({})
   const rigPoseSigRef = useRef<string>('')
@@ -82,6 +86,11 @@ function CharacterModelContent({
   const isDragging = useRef(false)
   const dragPointerId = useRef<number | null>(null)
   const dragOffset = useRef(new THREE.Vector3())
+  const groupDragRef = useRef<{
+    pointerId: number
+    startHit: THREE.Vector3
+    startWorld: Map<string, { worldX: number; worldY: number; characterScale: number }>
+  } | null>(null)
   const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), [])
 
   const clonedScene = useMemo(() => SkeletonUtils.clone(source), [source])
@@ -132,6 +141,21 @@ function CharacterModelContent({
     const yOffset = -box.min.y * scale
     return { scale, yOffset, size, center }
   }, [clonedScene])
+
+  const rollPivot = useMemo(
+    () => mannequinPivotOffsets(fit.center, fit.size, fit.scale, fit.yOffset),
+    [fit],
+  )
+  const modelCenter = rollPivot.modelCenter
+  const rollPivotOffset = rollPivot.rollPivot
+  const rollPivotNeg = useMemo(
+    () => rollPivotOffset.clone().multiplyScalar(-1),
+    [rollPivotOffset],
+  )
+  const modelCenterNeg = useMemo(
+    () => modelCenter.clone().multiplyScalar(-1),
+    [modelCenter],
+  )
 
   useEffect(() => {
     set({ characterError: null })
@@ -349,6 +373,12 @@ function CharacterModelContent({
       frameWidth,
       frameHeight,
     )
+    if (rollSpinRef.current) {
+      rollSpinRef.current.rotation.z = instance.characterRotationZ * DEG2RAD
+    }
+    if (yawSpinRef.current) {
+      yawSpinRef.current.rotation.y = instance.rotation * DEG2RAD
+    }
   }, [instance, frameWidth, frameHeight, groupRef])
 
   if (!instance) return null
@@ -362,6 +392,7 @@ function CharacterModelContent({
     },
     characterZ: instance.characterZ,
     characterRotationX: instance.characterRotationX,
+    characterRotationZ: instance.characterRotationZ,
     frameWidth,
     frameHeight,
   })
@@ -369,7 +400,17 @@ function CharacterModelContent({
   const syncStoreFromGroup = () => {
     const group = groupRef.current
     if (!group) return
-    const synced = syncAnchorFromGroup(group, frameWidth, frameHeight)
+    const synced = syncAnchorFromGroup(
+      group,
+      frameWidth,
+      frameHeight,
+      yawSpinRef.current?.rotation.y !== undefined
+        ? yawSpinRef.current.rotation.y / DEG2RAD
+        : instance.rotation,
+      rollSpinRef.current?.rotation.z !== undefined
+        ? rollSpinRef.current.rotation.z / DEG2RAD
+        : instance.characterRotationZ,
+    )
     updateInstance(instanceId, {
       x: synced.x,
       y: synced.y,
@@ -378,6 +419,7 @@ function CharacterModelContent({
       characterZ: synced.characterZ,
       characterRotationX: synced.characterRotationX,
       characterRotationY: synced.rotation,
+      characterRotationZ: synced.characterRotationZ,
     })
   }
 
@@ -398,30 +440,102 @@ function CharacterModelContent({
     if (mode === 'controlRig') return
     if (interactionMode !== 'transform') return
     e.stopPropagation()
-    selectInstance(instanceId, { shiftKey: e.nativeEvent.shiftKey })
+
+    const shiftKey = e.nativeEvent.shiftKey
+    const currentSelected = useStore.getState().selectedIds
+    if (shiftKey) {
+      selectInstance(instanceId, { shiftKey: true })
+    } else if (!currentSelected.includes(instanceId)) {
+      selectInstance(instanceId)
+    }
 
     const group = groupRef.current
     if (!group) return
 
-    isDragging.current = true
-    dragPointerId.current = e.pointerId
     dragPlane.set(new THREE.Vector3(0, 0, 1), -group.position.z)
     const hitPoint = new THREE.Vector3()
-    if (e.ray.intersectPlane(dragPlane, hitPoint)) {
-      dragOffset.current.copy(hitPoint).sub(group.position)
+    if (!e.ray.intersectPlane(dragPlane, hitPoint)) return
+
+    const activeSelected = useStore.getState().selectedIds
+    const isGroupDrag = activeSelected.length > 1 && activeSelected.includes(instanceId)
+
+    if (isGroupDrag) {
+      const instances = useStore.getState().instances
+      const startWorld = new Map<string, { worldX: number; worldY: number; characterScale: number }>()
+      for (const id of activeSelected) {
+        const inst = instances.find((i) => i.id === id)
+        if (!inst) continue
+        const world = anchorToWorldTransform({
+          anchor: { x: inst.x, y: inst.y, scale: inst.scale, rotation: inst.rotation },
+          characterZ: inst.characterZ,
+          characterRotationX: inst.characterRotationX,
+          characterRotationZ: inst.characterRotationZ,
+          frameWidth,
+          frameHeight,
+        })
+        startWorld.set(id, {
+          worldX: world.worldX,
+          worldY: world.worldY,
+          characterScale: world.characterScale,
+        })
+      }
+      groupDragRef.current = {
+        pointerId: e.pointerId,
+        startHit: hitPoint.clone(),
+        startWorld,
+      }
     } else {
-      dragOffset.current.set(0, 0, 0)
+      isDragging.current = true
+      dragPointerId.current = e.pointerId
+      dragOffset.current.copy(hitPoint).sub(group.position)
     }
+
     ;(e.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(e.pointerId)
   }
 
   const onModelPointerMove = (e: ThreeEvent<PointerEvent>) => {
+    const groupDrag = groupDragRef.current
+    if (groupDrag && groupDrag.pointerId === e.pointerId) {
+      e.stopPropagation()
+      const hitPoint = new THREE.Vector3()
+      dragPlane.set(new THREE.Vector3(0, 0, 1), -(groupRef.current?.position.z ?? 0))
+      if (!e.ray.intersectPlane(dragPlane, hitPoint)) return
+      const deltaX = hitPoint.x - groupDrag.startHit.x
+      const deltaY = hitPoint.y - groupDrag.startHit.y
+      updateSelectedInstances((inst) => {
+        const start = groupDrag.startWorld.get(inst.id)
+        if (!start) return {}
+        const synced = worldTransformToAnchor({
+          worldX: start.worldX + deltaX,
+          worldY: start.worldY + deltaY,
+          worldZ: inst.characterZ,
+          characterScale: start.characterScale,
+          characterRotationX: inst.characterRotationX,
+          characterRotationY: inst.rotation,
+          characterRotationZ: inst.characterRotationZ,
+          frameWidth,
+          frameHeight,
+        })
+        return { x: synced.x, y: synced.y }
+      })
+      return
+    }
+
     if (!isDragging.current || dragPointerId.current !== e.pointerId) return
     e.stopPropagation()
     updateDragPosition(e)
   }
 
   const endModelDrag = (e: ThreeEvent<PointerEvent>) => {
+    if (groupDragRef.current?.pointerId === e.pointerId) {
+      e.stopPropagation()
+      groupDragRef.current = null
+      ;(e.target as { releasePointerCapture?: (id: number) => void }).releasePointerCapture?.(
+        e.pointerId,
+      )
+      return
+    }
+
     if (dragPointerId.current !== null && dragPointerId.current !== e.pointerId) return
     if (!isDragging.current) return
     e.stopPropagation()
@@ -440,7 +554,7 @@ function CharacterModelContent({
         position={[world.worldX, world.worldY, world.worldZ]}
         rotation={[
           world.characterRotationX * DEG2RAD,
-          world.characterRotationY * DEG2RAD,
+          0,
           0,
         ]}
         scale={displayScale(world.characterScale, world.worldZ)}
@@ -449,42 +563,62 @@ function CharacterModelContent({
         onPointerUp={endModelDrag}
         onPointerCancel={endModelDrag}
       >
-        <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
-          <primitive object={clonedScene} />
-          {isSelected && (
-            <mesh
-              ref={(node) => registerSelectionBounds(instanceId, node)}
-              position={[fit.center.x, fit.center.y, fit.center.z]}
-              scale={[fit.size.x, fit.size.y, fit.size.z]}
-            >
-              <boxGeometry args={[1, 1, 1]} />
-              <meshBasicMaterial
-                color={selectedCount === 1 && isPrimary ? '#fbbf24' : '#38bdf8'}
-                wireframe
-                transparent
-                opacity={selectedCount === 1 ? 0.35 : 0.25}
-                depthTest={false}
-              />
-            </mesh>
-          )}
-          {isSelected &&
-            selectedCount === 1 &&
-            mode !== 'controlRig' &&
-            interactionMode === 'transform' && (
-            <BoundingBoxGizmo instanceId={instanceId} size={fit.size} center={fit.center} />
-          )}
-          {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'legacy' && (
-            <>
-              <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
-              <PoseJointGizmo skeleton={skeleton} />
-            </>
-          )}
-          {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'joint' && (
-            <PoseJointSphereGizmo skeleton={skeleton} fitScale={fit.scale} />
-          )}
-          {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'cylinder' && (
-            <PoseCylinderGizmo skeleton={skeleton} fitScale={fit.scale} />
-          )}
+        <group position={modelCenter}>
+          <group ref={yawSpinRef} rotation={[0, instance.rotation * DEG2RAD, 0]}>
+            <group position={modelCenterNeg}>
+              <group position={rollPivotOffset}>
+                <group ref={rollSpinRef} rotation={[0, 0, instance.characterRotationZ * DEG2RAD]}>
+                  <group position={rollPivotNeg}>
+                    <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
+                      <primitive object={clonedScene} />
+                      {isSelected && (
+                        <mesh
+                          raycast={() => null}
+                          ref={(node) =>
+                            registerSelectionBounds(instanceId, node, rollPivot)
+                          }
+                          position={[fit.center.x, fit.center.y, fit.center.z]}
+                          scale={[fit.size.x, fit.size.y, fit.size.z]}
+                        >
+                    <boxGeometry args={[1, 1, 1]} />
+                    <meshBasicMaterial
+                      color={selectedCount === 1 && isPrimary ? '#fbbf24' : '#38bdf8'}
+                      wireframe
+                      transparent
+                      opacity={selectedCount === 1 ? 0.35 : 0.25}
+                      depthTest={false}
+                    />
+                  </mesh>
+                )}
+                {isSelected &&
+                  selectedCount === 1 &&
+                  mode !== 'controlRig' &&
+                  interactionMode === 'transform' && (
+                  <BoundingBoxGizmo
+                    instanceId={instanceId}
+                    size={fit.size}
+                    center={fit.center}
+                    pivots={rollPivot}
+                  />
+                )}
+                {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'legacy' && (
+                  <>
+                    <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
+                    <PoseJointGizmo skeleton={skeleton} />
+                  </>
+                )}
+                {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'joint' && (
+                  <PoseJointSphereGizmo skeleton={skeleton} fitScale={fit.scale} />
+                )}
+                {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'cylinder' && (
+                  <PoseCylinderGizmo skeleton={skeleton} fitScale={fit.scale} />
+                )}
+                    </group>
+                  </group>
+                </group>
+              </group>
+            </group>
+          </group>
         </group>
       </group>
       {isPrimary && mode === 'controlRig' && (

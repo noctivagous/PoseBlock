@@ -8,6 +8,7 @@ export function Toolbar() {
   const selectedIds = useStore((s) => s.selectedIds)
   const characterModels = useStore((s) => s.characterModels)
   const updateInstance = useStore((s) => s.updateInstance)
+  const resetMannequinRotations = useStore((s) => s.resetMannequinRotations)
 
   const primaryId = selectedIds[0] ?? null
   const primary = instances.find((i) => i.id === primaryId)
@@ -62,6 +63,13 @@ export function Toolbar() {
         Click to select. Shift+click for multi-select. Drag to move; gizmos edit the primary
         selection.
       </p>
+      <button
+        type="button"
+        onClick={resetMannequinRotations}
+        className="select-none rounded bg-zinc-800 px-2 py-1.5 text-xs text-white/90 hover:bg-zinc-700"
+      >
+        Reset Mannequin Rotations
+      </button>
     </div>
   )
 }

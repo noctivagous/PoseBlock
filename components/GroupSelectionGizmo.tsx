@@ -4,9 +4,9 @@ import { Line } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
-import { dollyAnchor } from '../lib/characterTransform'
+import { applyMannequinRollZKeepingFeetWorld, dollyAnchor, rotateMannequinYawAroundModelCenter } from '../lib/characterTransform'
 import { clampMannequinScale } from '../lib/framing'
-import { getSelectionBounds } from '../lib/selectionBoundsRegistry'
+import { getSelectionBoundsMeta } from '../lib/selectionBoundsRegistry'
 import { useStore } from '../lib/store'
 import { TransformGizmoControls } from './BoundingBoxGizmo'
 
@@ -81,6 +81,8 @@ export function GroupSelectionGizmo() {
   const selectedIds = useStore((s) => s.selectedIds)
   const interactionMode = useStore((s) => s.interactionMode)
   const mode = useStore((s) => s.mode)
+  const frameWidth = useStore((s) => s.frameWidth)
+  const frameHeight = useStore((s) => s.frameHeight)
   const updateSelectedInstances = useStore((s) => s.updateSelectedInstances)
   const groupRef = useRef<THREE.Group>(null)
   const boxScaleRef = useRef<THREE.Group>(null)
@@ -101,7 +103,7 @@ export function GroupSelectionGizmo() {
     let hasAny = false
     unionBox.makeEmpty()
     for (const id of selectedIds) {
-      const obj = getSelectionBounds(id)
+      const obj = getSelectionBoundsMeta(id)?.object
       if (!obj) continue
       tempBox.setFromObject(obj)
       if (tempBox.isEmpty()) continue
@@ -166,6 +168,27 @@ export function GroupSelectionGizmo() {
     e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
+  const rotateSelectedYaw = (deltaRotationDeg: number) => {
+    updateSelectedInstances((inst) => {
+      const meta = getSelectionBoundsMeta(inst.id)
+      if (!meta) return { rotation: inst.rotation + deltaRotationDeg }
+      return rotateMannequinYawAroundModelCenter({
+        x: inst.x,
+        y: inst.y,
+        scale: inst.scale,
+        rotation: inst.rotation,
+        characterZ: inst.characterZ,
+        characterRotationX: inst.characterRotationX,
+        characterRotationZ: inst.characterRotationZ,
+        modelCenter: meta.pivots.modelCenter,
+        rollPivot: meta.pivots.rollPivot,
+        deltaRotationDeg,
+        frameWidth,
+        frameHeight,
+      })
+    })
+  }
+
   return (
     <group ref={groupRef} visible={false}>
       <group ref={boxScaleRef}>
@@ -173,8 +196,8 @@ export function GroupSelectionGizmo() {
       </group>
       <TransformGizmoControls
         sizeRef={gizmoSizeRef}
-        rotateLeft={() => updateSelectedInstances((inst) => ({ rotation: inst.rotation - 15 }))}
-        rotateRight={() => updateSelectedInstances((inst) => ({ rotation: inst.rotation + 15 }))}
+        rotateLeft={() => rotateSelectedYaw(-15)}
+        rotateRight={() => rotateSelectedYaw(15)}
         dollyIn={() =>
           updateSelectedInstances((inst) =>
             dollyAnchor({ scale: inst.scale }, inst.characterZ, 1),
@@ -195,6 +218,56 @@ export function GroupSelectionGizmo() {
             characterRotationX: Math.max(-160, inst.characterRotationX - 12),
           }))
         }
+        tiltLeft={() => {
+          const TILT_STEP = 12
+          const MAX_TILT = 45
+          updateSelectedInstances((inst) => {
+            const meta = getSelectionBoundsMeta(inst.id)
+            const next = Math.min(MAX_TILT, inst.characterRotationZ + TILT_STEP)
+            const delta = next - inst.characterRotationZ
+            if (delta === 0) return {}
+            if (!meta) return { characterRotationZ: next }
+            return applyMannequinRollZKeepingFeetWorld({
+              x: inst.x,
+              y: inst.y,
+              scale: inst.scale,
+              rotation: inst.rotation,
+              characterZ: inst.characterZ,
+              characterRotationX: inst.characterRotationX,
+              characterRotationZ: inst.characterRotationZ,
+              modelCenter: meta.pivots.modelCenter,
+              rollPivot: meta.pivots.rollPivot,
+              deltaRotationDeg: delta,
+              frameWidth,
+              frameHeight,
+            })
+          })
+        }}
+        tiltRight={() => {
+          const TILT_STEP = 12
+          const MAX_TILT = 45
+          updateSelectedInstances((inst) => {
+            const meta = getSelectionBoundsMeta(inst.id)
+            const next = Math.max(-MAX_TILT, inst.characterRotationZ - TILT_STEP)
+            const delta = next - inst.characterRotationZ
+            if (delta === 0) return {}
+            if (!meta) return { characterRotationZ: next }
+            return applyMannequinRollZKeepingFeetWorld({
+              x: inst.x,
+              y: inst.y,
+              scale: inst.scale,
+              rotation: inst.rotation,
+              characterZ: inst.characterZ,
+              characterRotationX: inst.characterRotationX,
+              characterRotationZ: inst.characterRotationZ,
+              modelCenter: meta.pivots.modelCenter,
+              rollPivot: meta.pivots.rollPivot,
+              deltaRotationDeg: delta,
+              frameWidth,
+              frameHeight,
+            })
+          })
+        }}
         onScalePointerDown={onScalePointerDown}
         onScalePointerMove={onScalePointerMove}
         endScaleDrag={endScaleDrag}

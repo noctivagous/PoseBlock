@@ -90,6 +90,8 @@ export type CharacterInstance = {
   characterZ: number
   characterRotationX: number
   characterRotationY: number
+  /** Roll in the view plane (degrees) — pivots at bbox bottom center. */
+  characterRotationZ: number
   controlRig: ControlRig
   pins: Pins
   pinnedWorldPos: PinnedWorldPos
@@ -122,10 +124,29 @@ export function createInstance(
     characterZ: 0,
     characterRotationX: 0,
     characterRotationY: 0,
+    characterRotationZ: 0,
     controlRig: createDefaultControlRig(),
     pins: createDefaultPins(),
     pinnedWorldPos: createDefaultPinnedWorldPos(),
     ikBlend: createDefaultIkBlend(),
+  }
+}
+
+export function cloneInstance(
+  source: CharacterInstance,
+  overrides?: Partial<CharacterInstance>,
+): CharacterInstance {
+  return {
+    ...source,
+    id: createInstanceId(),
+    poseAdjustments: [...source.poseAdjustments],
+    poseAdjustmentPast: source.poseAdjustmentPast.map((stack) => [...stack]),
+    poseAdjustmentFuture: source.poseAdjustmentFuture.map((stack) => [...stack]),
+    controlRig: { ...source.controlRig },
+    pins: { ...source.pins },
+    pinnedWorldPos: { ...source.pinnedWorldPos },
+    ikBlend: { ...source.ikBlend },
+    ...overrides,
   }
 }
 
@@ -146,6 +167,7 @@ export function instanceToPoseBlockExport(instance: CharacterInstance): PoseBloc
     characterZ: instance.characterZ,
     characterRotationX: instance.characterRotationX,
     characterRotationY: instance.characterRotationY,
+    characterRotationZ: instance.characterRotationZ,
     controlRig: instance.controlRig,
     pins: instance.pins,
     pinnedWorldPos: instance.pinnedWorldPos,

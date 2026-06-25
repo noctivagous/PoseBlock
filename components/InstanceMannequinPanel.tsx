@@ -49,6 +49,7 @@ export function InstanceMannequinPanel() {
   const frameWidth = useStore((s) => s.frameWidth)
   const frameHeight = useStore((s) => s.frameHeight)
   const addInstance = useStore((s) => s.addInstance)
+  const duplicateSelectedInstances = useStore((s) => s.duplicateSelectedInstances)
   const removeInstance = useStore((s) => s.removeInstance)
   const updateInstance = useStore((s) => s.updateInstance)
   const selectInstance = useStore((s) => s.selectInstance)
@@ -90,10 +91,20 @@ export function InstanceMannequinPanel() {
 
       {selectedIds.length > 0 && (
         <div className="flex items-center justify-between text-[10px] text-white/50">
-          <span>
-            {selectedIds.length} selected
-            {selectedIds.length > 1 ? ' — pose/model edits apply to all' : ''}
-          </span>
+          <div className="flex items-center gap-2">
+            <span>
+              {selectedIds.length} selected
+              {selectedIds.length > 1 ? ' — pose/model edits apply to all' : ''}
+            </span>
+            <button
+              type="button"
+              disabled={!canAdd}
+              onClick={duplicateSelectedInstances}
+              className="rounded bg-zinc-700 px-2 py-0.5 text-[10px] text-white/90 hover:bg-zinc-600 disabled:opacity-40"
+            >
+              Duplicate
+            </button>
+          </div>
           <button type="button" onClick={clearSelection} className="underline hover:text-white/80">
             Clear
           </button>

@@ -9,6 +9,7 @@ import {
   createDefaultPinnedWorldPos,
   createDefaultPins,
   createInstance,
+  cloneInstance,
   MAX_INSTANCES,
   type ControlRig,
   type CharacterInstance,
@@ -55,6 +56,7 @@ export type StoreState = {
   onSelect: ((ids: string[]) => void) | null
   set: (partial: Partial<StoreState>) => void
   addInstance: (partial?: Partial<Pick<CharacterInstance, 'x' | 'y' | 'scale' | 'modelUrl' | 'basePoseId'>>) => string | null
+  duplicateSelectedInstances: () => void
   removeInstance: (id: string) => void
   updateInstance: (id: string, patch: Partial<CharacterInstance>) => void
   updateSelectedInstances: (
@@ -69,6 +71,7 @@ export type StoreState = {
   undoPoseAdjustment: () => void
   redoPoseAdjustment: () => void
   resetPoseAdjustments: () => void
+  resetMannequinRotations: () => void
   setBasePoseId: (id: string) => void
   setPoseSourceMode: (mode: PoseSourceMode) => void
   setAnimationPoseModel: (id: string, defaultClip?: string | null) => void
@@ -113,6 +116,7 @@ function instanceChangePatch(inst: CharacterInstance): Partial<PoseBlockInstance
     characterZ: inst.characterZ,
     characterRotationX: inst.characterRotationX,
     characterRotationY: inst.characterRotationY,
+    characterRotationZ: inst.characterRotationZ,
     basePoseId: inst.basePoseId,
     poseSourceMode: inst.poseSourceMode,
     animationPoseModelId: inst.animationPoseModelId,
@@ -198,6 +202,32 @@ export const useStore = create<StoreState>((set, get) => ({
     return instance.id
   },
 
+  duplicateSelectedInstances: () => {
+    const { instances, selectedIds } = get()
+    if (selectedIds.length === 0) return
+
+    const remaining = MAX_INSTANCES - instances.length
+    if (remaining <= 0) return
+
+    const sources = selectedIds
+      .map((id) => instances.find((i) => i.id === id))
+      .filter((inst): inst is CharacterInstance => inst !== undefined)
+      .slice(0, remaining)
+
+    const clones = sources.map((source, index) =>
+      cloneInstance(source, { x: Math.min(1, source.x + 0.05 * (index + 1)) }),
+    )
+    if (clones.length === 0) return
+
+    const nextIds = clones.map((c) => c.id)
+    const nextInstances = [...instances, ...clones]
+    set({ instances: nextInstances, selectedIds: nextIds })
+
+    notifyInstanceChange(get().onInstanceChange, nextInstances, nextIds)
+    const cb = get().onSelect
+    if (cb) cb(nextIds)
+  },
+
   removeInstance: (id) => {
     const { instances, selectedIds } = get()
     set({
@@ -236,12 +266,16 @@ export const useStore = create<StoreState>((set, get) => ({
         nextIds = [...selectedIds, id]
       }
       set({ selectedIds: nextIds })
+      const cb = get().onSelect
+      if (cb) cb(nextIds)
+    } else if (selectedIds.includes(id)) {
+      return
     } else {
       nextIds = [id]
       set({ selectedIds: nextIds, selectedBodyPart: null, selectedPoseBone: null })
+      const cb = get().onSelect
+      if (cb) cb(nextIds)
     }
-    const cb = get().onSelect
-    if (cb) cb(nextIds)
   },
 
   clearSelection: () => {
@@ -341,6 +375,20 @@ export const useStore = create<StoreState>((set, get) => ({
         }
       }),
     })
+  },
+
+  resetMannequinRotations: () => {
+    const { selectedIds } = get()
+    set({
+      instances: mapSelectedInstances(get(), (inst) => ({
+        ...inst,
+        rotation: 0,
+        characterRotationX: 0,
+        characterRotationY: 0,
+        characterRotationZ: 0,
+      })),
+    })
+    notifyInstanceChange(get().onInstanceChange, get().instances, selectedIds)
   },
 
   setBasePoseId: (id) => {
