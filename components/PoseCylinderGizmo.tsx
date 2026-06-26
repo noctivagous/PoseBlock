@@ -78,6 +78,8 @@ export function PoseCylinderGizmo({
 }) {
   const interactionMode = useStore((s) => s.interactionMode)
   const selectedPoseBone = useStore((s) => s.selectedPoseBone)
+  const primaryId = useStore((s) => s.selectedIds[0] ?? null)
+  const selectInstance = useStore((s) => s.selectInstance)
   const pushPoseOps = useStore((s) => s.pushPoseOps)
   const set = useStore((s) => s.set)
 
@@ -105,6 +107,17 @@ export function PoseCylinderGizmo({
 
   const beginDrag = (segment: SegmentRuntime, part: DragPart, e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
+    if (primaryId) {
+      if (e.nativeEvent.shiftKey) {
+        selectInstance(primaryId, { shiftKey: true })
+        if (!useStore.getState().selectedIds.includes(primaryId)) {
+          set({ selectedPoseBone: null, selectedBodyPart: null })
+          return
+        }
+      } else {
+        selectInstance(primaryId)
+      }
+    }
     set({ selectedPoseBone: canonicalBoneName(segment.bone.name), selectedBodyPart: null })
     dragRef.current = {
       pointerId: e.pointerId,
@@ -119,7 +132,18 @@ export function PoseCylinderGizmo({
     ;(e.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(e.pointerId)
   }
 
-  const selectSegment = (segment: SegmentRuntime) => {
+  const selectSegment = (segment: SegmentRuntime, shiftKey: boolean) => {
+    if (primaryId) {
+      if (shiftKey) {
+        selectInstance(primaryId, { shiftKey: true })
+        if (!useStore.getState().selectedIds.includes(primaryId)) {
+          set({ selectedPoseBone: null, selectedBodyPart: null })
+          return
+        }
+      } else {
+        selectInstance(primaryId)
+      }
+    }
     set({ selectedPoseBone: canonicalBoneName(segment.bone.name), selectedBodyPart: null })
   }
 
@@ -232,7 +256,7 @@ function SegmentHandle({
   tempDir: THREE.Vector3
   tempQuat: THREE.Quaternion
   tempUp: THREE.Vector3
-  onSelect: (segment: SegmentRuntime) => void
+  onSelect: (segment: SegmentRuntime, shiftKey: boolean) => void
   onStartDrag: (segment: SegmentRuntime, part: DragPart, e: ThreeEvent<PointerEvent>) => void
   onMoveDrag: (segment: SegmentRuntime, e: ThreeEvent<PointerEvent>) => void
   onEndDrag: (segment: SegmentRuntime, e: ThreeEvent<PointerEvent>) => void
@@ -279,7 +303,7 @@ function SegmentHandle({
         onPointerOut={() => setHovered(false)}
         onPointerDown={(e) => {
           e.stopPropagation()
-          onSelect(segment)
+          onSelect(segment, e.nativeEvent.shiftKey)
         }}
       >
         <boxGeometry args={[cubeHalf * 2, 1, cubeHalf * 2]} />

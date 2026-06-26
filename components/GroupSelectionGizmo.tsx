@@ -1,16 +1,17 @@
 'use client'
 
 import { Line } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import { dollyAnchor, rotateMannequinYawAroundModelCenter } from '../lib/characterTransform'
-import { clampMannequinScale } from '../lib/framing'
+import { clampMannequinAnchor, clampMannequinScale, maxFeetAnchorY } from '../lib/framing'
 import { getSelectionBoundsMeta } from '../lib/selectionBoundsRegistry'
 import { useStore } from '../lib/store'
 import { TransformGizmoControls } from './BoundingBoxGizmo'
 
 const U = 0.5
+const ROTATE_Y_DRAG_SENSITIVITY = 0.35
 const BOX_EDGES: [THREE.Vector3Tuple, THREE.Vector3Tuple][] = [
   [
     [-U, -U, -U],
@@ -84,6 +85,7 @@ export function GroupSelectionGizmo() {
   const frameWidth = useStore((s) => s.frameWidth)
   const frameHeight = useStore((s) => s.frameHeight)
   const updateSelectedInstances = useStore((s) => s.updateSelectedInstances)
+  const { size: canvasSize } = useThree()
   const groupRef = useRef<THREE.Group>(null)
   const boxScaleRef = useRef<THREE.Group>(null)
   const gizmoSizeRef = useRef(new THREE.Vector3(1, 1, 1))
@@ -91,6 +93,28 @@ export function GroupSelectionGizmo() {
   const scaleDrag = useRef<{ startScales: Map<string, number>; startY: number; pointerId: number } | null>(
     null,
   )
+  const moveDrag = useRef<{
+    startPositions: Map<string, { x: number; y: number }>
+    startClientX: number
+    startClientY: number
+    pointerId: number
+  } | null>(null)
+  const rotateYDrag = useRef<{
+    startStates: Map<
+      string,
+      {
+        x: number
+        y: number
+        scale: number
+        rotation: number
+        characterZ: number
+        characterRotationX: number
+        characterRotationZ: number
+      }
+    >
+    startClientX: number
+    pointerId: number
+  } | null>(null)
 
   const showGizmo =
     selectedIds.length > 1 && mode !== 'controlRig' && interactionMode === 'transform'
@@ -168,6 +192,110 @@ export function GroupSelectionGizmo() {
     e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
+  const onMovePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    const instances = useStore.getState().instances
+    const startPositions = new Map<string, { x: number; y: number }>()
+    for (const id of selectedIds) {
+      const inst = instances.find((i) => i.id === id)
+      if (inst) startPositions.set(id, { x: inst.x, y: inst.y })
+    }
+    moveDrag.current = {
+      startPositions,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      pointerId: e.pointerId,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onMovePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!moveDrag.current || moveDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    const canvasW = Math.max(canvasSize.width, 1)
+    const canvasH = Math.max(canvasSize.height, 1)
+    const deltaX = (e.clientX - moveDrag.current.startClientX) / canvasW
+    const deltaY = (e.clientY - moveDrag.current.startClientY) / canvasH
+    const startPositions = moveDrag.current.startPositions
+    updateSelectedInstances((inst) => {
+      const start = startPositions.get(inst.id)
+      if (!start) return {}
+      const clamped = clampMannequinAnchor(
+        { x: start.x + deltaX, y: start.y + deltaY },
+        { maxY: maxFeetAnchorY(inst.scale) },
+      )
+      return { x: clamped.x, y: clamped.y }
+    })
+  }
+
+  const endMoveDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!moveDrag.current || moveDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    moveDrag.current = null
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+
+  const onRotateYPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    const instances = useStore.getState().instances
+    const startStates = new Map<
+      string,
+      {
+        x: number
+        y: number
+        scale: number
+        rotation: number
+        characterZ: number
+        characterRotationX: number
+        characterRotationZ: number
+      }
+    >()
+    for (const id of selectedIds) {
+      const inst = instances.find((i) => i.id === id)
+      if (!inst) continue
+      startStates.set(id, {
+        x: inst.x,
+        y: inst.y,
+        scale: inst.scale,
+        rotation: inst.rotation,
+        characterZ: inst.characterZ,
+        characterRotationX: inst.characterRotationX,
+        characterRotationZ: inst.characterRotationZ,
+      })
+    }
+    rotateYDrag.current = { startStates, startClientX: e.clientX, pointerId: e.pointerId }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onRotateYPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!rotateYDrag.current || rotateYDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    const deltaDeg =
+      (e.clientX - rotateYDrag.current.startClientX) * ROTATE_Y_DRAG_SENSITIVITY
+    const startStates = rotateYDrag.current.startStates
+    updateSelectedInstances((inst) => {
+      const start = startStates.get(inst.id)
+      if (!start) return {}
+      const meta = getSelectionBoundsMeta(inst.id)
+      if (!meta) return { rotation: start.rotation + deltaDeg }
+      return rotateMannequinYawAroundModelCenter({
+        ...start,
+        modelCenter: meta.pivots.modelCenter,
+        feetFromYawNeg: meta.pivots.feetFromYawNeg,
+        deltaRotationDeg: deltaDeg,
+        frameWidth,
+        frameHeight,
+      })
+    })
+  }
+
+  const endRotateYDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!rotateYDrag.current || rotateYDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    rotateYDrag.current = null
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+
   const rotateSelectedYaw = (deltaRotationDeg: number) => {
     updateSelectedInstances((inst) => {
       const meta = getSelectionBoundsMeta(inst.id)
@@ -228,9 +356,21 @@ export function GroupSelectionGizmo() {
             characterRotationZ: inst.characterRotationZ - 12,
           }))
         }
-        onScalePointerDown={onScalePointerDown}
-        onScalePointerMove={onScalePointerMove}
-        endScaleDrag={endScaleDrag}
+        scaleDrag={{
+          onPointerDown: onScalePointerDown,
+          onPointerMove: onScalePointerMove,
+          endDrag: endScaleDrag,
+        }}
+        moveDrag={{
+          onPointerDown: onMovePointerDown,
+          onPointerMove: onMovePointerMove,
+          endDrag: endMoveDrag,
+        }}
+        rotateYDrag={{
+          onPointerDown: onRotateYPointerDown,
+          onPointerMove: onRotateYPointerMove,
+          endDrag: endRotateYDrag,
+        }}
       />
     </group>
   )

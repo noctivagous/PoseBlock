@@ -1,22 +1,29 @@
 'use client'
 
 import { Html } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
-import { useLayoutEffect, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useRef } from 'react'
 import * as THREE from 'three'
+import {
+  clampGroupWorldToView,
+  orthoViewBounds,
+  type ControlExtentsPx,
+} from '../lib/gizmoFrameClamp'
 import {
   dollyAnchor,
   rotateMannequinYawAroundModelCenter,
   type MannequinPivotOffsets,
 } from '../lib/characterTransform'
-import { clampMannequinScale } from '../lib/framing'
+import { clampMannequinAnchor, clampMannequinScale, maxFeetAnchorY } from '../lib/framing'
 import type { CharacterInstance } from '../lib/instances'
+import { registerSelectionBounds } from '../lib/selectionBoundsRegistry'
 import { useStore } from '../lib/store'
 
 const ROT_STEP = 15
 const PITCH_STEP = 12
 const TILT_STEP = 12
 const MAX_PITCH = 160
+const ROTATE_Y_DRAG_SENSITIVITY = 0.35
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 function GizmoBtn({
@@ -44,6 +51,41 @@ function GizmoBtn({
   )
 }
 
+type DragGizmoHandlers = {
+  onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void
+  onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void
+  endDrag: (e: React.PointerEvent<HTMLButtonElement>) => void
+}
+
+function DragGizmoBtn({
+  label,
+  title,
+  onPointerDown,
+  onPointerMove,
+  endDrag,
+}: {
+  label: string
+  title: string
+} & DragGizmoHandlers) {
+  return (
+    <button
+      type="button"
+      title={title}
+      className="flex h-5 flex-col items-center justify-center gap-0 rounded-none border border-cyan-300/80 bg-cyan-900/80 px-1 py-0 text-[8px] leading-none text-cyan-100 shadow hover:bg-cyan-800/90"
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        onPointerDown(e)
+      }}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      <span>{label}</span>
+      <span>(drag)</span>
+    </button>
+  )
+}
+
 export type TransformGizmoControlsProps = {
   size?: THREE.Vector3
   /** When set, anchor positions follow this ref each frame (group selection). */
@@ -56,12 +98,17 @@ export type TransformGizmoControlsProps = {
   pitchDown: () => void
   tiltLeft: () => void
   tiltRight: () => void
-  onScalePointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void
-  onScalePointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void
-  endScaleDrag: (e: React.PointerEvent<HTMLButtonElement>) => void
+  scaleDrag: DragGizmoHandlers
+  moveDrag: DragGizmoHandlers
+  rotateYDrag: DragGizmoHandlers
 }
 
 const GIZMO_PAD = 0.18
+
+/** Approximate Html cluster size (px) for frame clamping — rotate row + drag column + dolly row. */
+const TOP_CONTROLS_EXTENTS: ControlExtentsPx = { width: 112, height: 72 }
+/** Pitch row + tilt buttons flanking. */
+const BOTTOM_CONTROLS_EXTENTS: ControlExtentsPx = { width: 132, height: 24 }
 
 function updateGizmoAnchors(
   size: THREE.Vector3,
@@ -84,20 +131,28 @@ export function TransformGizmoControls({
   pitchDown,
   tiltLeft,
   tiltRight,
-  onScalePointerDown,
-  onScalePointerMove,
-  endScaleDrag,
+  scaleDrag,
+  moveDrag,
+  rotateYDrag,
 }: TransformGizmoControlsProps) {
   const topRef = useRef<THREE.Group>(null)
   const bottomRef = useRef<THREE.Group>(null)
 
-  useLayoutEffect(() => {
-    if (size) updateGizmoAnchors(size, topRef.current, bottomRef.current)
-  }, [size])
+  useFrame((state) => {
+    const boxSize = sizeRef?.current ?? size
+    if (!boxSize) return
 
-  useFrame(() => {
-    if (sizeRef?.current) {
-      updateGizmoAnchors(sizeRef.current, topRef.current, bottomRef.current)
+    updateGizmoAnchors(boxSize, topRef.current, bottomRef.current)
+
+    const aspect = state.size.width / state.size.height || 16 / 9
+    const bounds = orthoViewBounds(aspect)
+    const canvasHeight = state.size.height
+
+    if (topRef.current) {
+      clampGroupWorldToView(topRef.current, TOP_CONTROLS_EXTENTS, bounds, canvasHeight)
+    }
+    if (bottomRef.current) {
+      clampGroupWorldToView(bottomRef.current, BOTTOM_CONTROLS_EXTENTS, bounds, canvasHeight)
     }
   })
 
@@ -111,21 +166,23 @@ export function TransformGizmoControls({
                 <GizmoBtn label="↻" title="Rotate left" onClick={rotateLeft} />
                 <GizmoBtn label="↺" title="Rotate right" onClick={rotateRight} />
               </div>
-              <button
-                type="button"
-                title="Drag up/down to scale"
-                className="absolute left-full top-0 ml-1 flex h-5 flex-col items-center justify-center gap-0 rounded-none border border-cyan-300/80 bg-cyan-900/80 px-1 py-0 text-[8px] leading-none text-cyan-100 shadow hover:bg-cyan-800/90"
-                onPointerDown={(e) => {
-                  e.stopPropagation()
-                  onScalePointerDown(e)
-                }}
-                onPointerMove={onScalePointerMove}
-                onPointerUp={endScaleDrag}
-                onPointerCancel={endScaleDrag}
-              >
-                <span>scale</span>
-                <span>(drag)</span>
-              </button>
+              <div className="absolute left-full top-0 ml-1 flex flex-col gap-1">
+                <DragGizmoBtn
+                  label="scale"
+                  title="Drag up/down to scale"
+                  {...scaleDrag}
+                />
+                <DragGizmoBtn
+                  label="move"
+                  title="Drag to move"
+                  {...moveDrag}
+                />
+                <DragGizmoBtn
+                  label="rotate y"
+                  title="Drag left/right to rotate around Y"
+                  {...rotateYDrag}
+                />
+              </div>
             </div>
             <div className="flex gap-1">
               <GizmoBtn label="↑" title="Move closer (larger)" onClick={dollyIn} />
@@ -160,16 +217,46 @@ type BoundingBoxGizmoProps = {
   size: THREE.Vector3
   center: THREE.Vector3
   pivots: MannequinPivotOffsets
+  showControls?: boolean
+  wireframeColor?: string
+  wireframeOpacity?: number
 }
 
-export function BoundingBoxGizmo({ instanceId, size, center, pivots }: BoundingBoxGizmoProps) {
+export function BoundingBoxGizmo({
+  instanceId,
+  size,
+  center,
+  pivots,
+  showControls = true,
+  wireframeColor = '#38bdf8',
+  wireframeOpacity = 0.85,
+}: BoundingBoxGizmoProps) {
   const instance = useStore((s) => s.instances.find((i) => i.id === instanceId))
   const frameWidth = useStore((s) => s.frameWidth)
   const frameHeight = useStore((s) => s.frameHeight)
   const updateInstance = useStore((s) => s.updateInstance)
+  const { size: canvasSize } = useThree()
   const scaleDrag = useRef<{ startScale: number; startY: number; pointerId: number } | null>(
     null,
   )
+  const moveDrag = useRef<{
+    startX: number
+    startY: number
+    startClientX: number
+    startClientY: number
+    pointerId: number
+  } | null>(null)
+  const rotateYDrag = useRef<{
+    startRotation: number
+    startX: number
+    startY: number
+    startClientX: number
+    pointerId: number
+    scale: number
+    characterZ: number
+    characterRotationX: number
+    characterRotationZ: number
+  } | null>(null)
 
   if (!instance) return null
 
@@ -219,19 +306,106 @@ export function BoundingBoxGizmo({ instanceId, size, center, pivots }: BoundingB
     e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
+  const onMovePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    moveDrag.current = {
+      startX: instance.x,
+      startY: instance.y,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      pointerId: e.pointerId,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onMovePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!moveDrag.current || moveDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    const canvasW = Math.max(canvasSize.width, 1)
+    const canvasH = Math.max(canvasSize.height, 1)
+    const deltaX = (e.clientX - moveDrag.current.startClientX) / canvasW
+    const deltaY = (e.clientY - moveDrag.current.startClientY) / canvasH
+    const clamped = clampMannequinAnchor(
+      {
+        x: moveDrag.current.startX + deltaX,
+        y: moveDrag.current.startY + deltaY,
+      },
+      { maxY: maxFeetAnchorY(instance.scale) },
+    )
+    patch({ x: clamped.x, y: clamped.y })
+  }
+
+  const endMoveDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!moveDrag.current || moveDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    moveDrag.current = null
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+
+  const onRotateYPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    rotateYDrag.current = {
+      startRotation: instance.rotation,
+      startX: instance.x,
+      startY: instance.y,
+      startClientX: e.clientX,
+      pointerId: e.pointerId,
+      scale: instance.scale,
+      characterZ: instance.characterZ,
+      characterRotationX: instance.characterRotationX,
+      characterRotationZ: instance.characterRotationZ,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onRotateYPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!rotateYDrag.current || rotateYDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    const deltaDeg =
+      (e.clientX - rotateYDrag.current.startClientX) * ROTATE_Y_DRAG_SENSITIVITY
+    patch(
+      rotateMannequinYawAroundModelCenter({
+        x: rotateYDrag.current.startX,
+        y: rotateYDrag.current.startY,
+        scale: rotateYDrag.current.scale,
+        rotation: rotateYDrag.current.startRotation,
+        characterZ: rotateYDrag.current.characterZ,
+        characterRotationX: rotateYDrag.current.characterRotationX,
+        characterRotationZ: rotateYDrag.current.characterRotationZ,
+        modelCenter: pivots.modelCenter,
+        feetFromYawNeg: pivots.feetFromYawNeg,
+        deltaRotationDeg: deltaDeg,
+        frameWidth,
+        frameHeight,
+      }),
+    )
+  }
+
+  const endRotateYDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!rotateYDrag.current || rotateYDrag.current.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    rotateYDrag.current = null
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+
   return (
     <group position={center}>
-      <mesh raycast={() => null} scale={[size.x, size.y, size.z]}>
+      <mesh
+        raycast={() => null}
+        ref={(node) => registerSelectionBounds(instanceId, node, pivots)}
+        scale={[size.x, size.y, size.z]}
+      >
         <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial
-          color="#38bdf8"
+          color={wireframeColor}
           wireframe
           transparent
-          opacity={0.85}
+          opacity={wireframeOpacity}
           depthTest={false}
         />
       </mesh>
 
+      {showControls && (
       <TransformGizmoControls
         size={size}
         rotateLeft={() => rotateYaw(-ROT_STEP)}
@@ -262,10 +436,23 @@ export function BoundingBoxGizmo({ instanceId, size, center, pivots }: BoundingB
         tiltRight={() =>
           patch({ characterRotationZ: instance.characterRotationZ - TILT_STEP })
         }
-        onScalePointerDown={onScalePointerDown}
-        onScalePointerMove={onScalePointerMove}
-        endScaleDrag={endScaleDrag}
+        scaleDrag={{
+          onPointerDown: onScalePointerDown,
+          onPointerMove: onScalePointerMove,
+          endDrag: endScaleDrag,
+        }}
+        moveDrag={{
+          onPointerDown: onMovePointerDown,
+          onPointerMove: onMovePointerMove,
+          endDrag: endMoveDrag,
+        }}
+        rotateYDrag={{
+          onPointerDown: onRotateYPointerDown,
+          onPointerMove: onRotateYPointerMove,
+          endDrag: endRotateYDrag,
+        }}
       />
+      )}
     </group>
   )
 }

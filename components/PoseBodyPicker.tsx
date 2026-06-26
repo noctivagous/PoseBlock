@@ -113,7 +113,7 @@ function PartPickerSphere({
   bone: THREE.Bone
   radius: number
   selected: boolean
-  onSelect: () => void
+  onSelect: (shiftKey: boolean) => boolean
   onDragAdjust: (partId: BodyPartId, dx: number, dy: number) => void
 }) {
   const meshRef = useRef<THREE.Mesh>(null)
@@ -146,7 +146,8 @@ function PartPickerSphere({
       renderOrder={10}
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation()
-        onSelect()
+        const keepSelected = onSelect(e.nativeEvent.shiftKey)
+        if (!keepSelected) return
         dragStateRef.current = {
           pointerId: e.pointerId,
           startX: e.clientX,
@@ -187,10 +188,6 @@ function PartPickerSphere({
         )
         e.stopPropagation()
       }}
-      onClick={(e) => {
-        e.stopPropagation()
-        onSelect()
-      }}
     >
       <sphereGeometry args={[radius, 14, 14]} />
       <meshBasicMaterial
@@ -228,6 +225,8 @@ export function PoseBodyPicker({
 }) {
   const interactionMode = useStore((s) => s.interactionMode)
   const selectedBodyPart = useStore((s) => s.selectedBodyPart)
+  const primaryId = useStore((s) => s.selectedIds[0] ?? null)
+  const selectInstance = useStore((s) => s.selectInstance)
   const pushPoseOp = useStore((s) => s.pushPoseOp)
   const set = useStore((s) => s.set)
 
@@ -247,7 +246,21 @@ export function PoseBodyPicker({
             bone={bone}
             radius={part.pickRadius * localRadiusScale}
             selected={selectedBodyPart === part.id}
-            onSelect={() => set({ selectedBodyPart: part.id })}
+            onSelect={(shiftKey) => {
+              if (primaryId) {
+                if (shiftKey) {
+                  selectInstance(primaryId, { shiftKey: true })
+                  if (!useStore.getState().selectedIds.includes(primaryId)) {
+                    set({ selectedBodyPart: null, selectedPoseBone: null })
+                    return false
+                  }
+                } else {
+                  selectInstance(primaryId)
+                }
+              }
+              set({ selectedBodyPart: part.id, selectedPoseBone: null })
+              return true
+            }}
             onDragAdjust={(id, dx, dy) => {
               for (const op of dragOpsForPart(id, dx, dy)) {
                 pushPoseOp(op)

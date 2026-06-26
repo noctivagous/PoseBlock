@@ -90,10 +90,6 @@ function JointHandle({
       onPointerCancel={(e) => {
         onDragRotateEnd(boneName, e)
       }}
-      onClick={(e) => {
-        e.stopPropagation()
-        onSelect()
-      }}
     >
       <sphereGeometry args={[radius, 14, 14]} />
       <meshBasicMaterial
@@ -117,6 +113,8 @@ export function PoseJointSphereGizmo({
 }) {
   const interactionMode = useStore((s) => s.interactionMode)
   const selectedPoseBone = useStore((s) => s.selectedPoseBone)
+  const primaryId = useStore((s) => s.selectedIds[0] ?? null)
+  const selectInstance = useStore((s) => s.selectInstance)
   const pushPoseOps = useStore((s) => s.pushPoseOps)
   const set = useStore((s) => s.set)
 
@@ -169,6 +167,17 @@ export function PoseJointSphereGizmo({
   const localRadiusScale = fitScale > 0 ? 1 / fitScale : 1
 
   const beginSphereDrag = (boneName: string, e: ThreeEvent<PointerEvent>) => {
+    if (primaryId) {
+      if (e.nativeEvent.shiftKey) {
+        selectInstance(primaryId, { shiftKey: true })
+        if (!useStore.getState().selectedIds.includes(primaryId)) {
+          set({ selectedPoseBone: null, selectedBodyPart: null })
+          return
+        }
+      } else {
+        selectInstance(primaryId)
+      }
+    }
     const bone = joints.find((b) => canonicalBoneName(b.name) === boneName)
     if (!bone) return
     e.stopPropagation()
@@ -237,7 +246,12 @@ export function PoseJointSphereGizmo({
             boneName={name}
             radius={jointRadius(name) * localRadiusScale}
             selected={selectedPoseBone === name}
-            onSelect={() => set({ selectedPoseBone: name, selectedBodyPart: null })}
+            onSelect={() => {
+              if (primaryId) {
+                selectInstance(primaryId)
+              }
+              set({ selectedPoseBone: name, selectedBodyPart: null })
+            }}
             onDragRotateStart={beginSphereDrag}
             onDragRotate={moveSphereDrag}
             onDragRotateEnd={endSphereDrag}

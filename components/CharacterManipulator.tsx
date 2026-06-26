@@ -426,8 +426,6 @@ function CharacterModelContent({
   }
 
   const onModelPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (mode === 'controlRig') return
-    if (interactionMode !== 'transform') return
     e.stopPropagation()
 
     const shiftKey = e.nativeEvent.shiftKey
@@ -437,6 +435,9 @@ function CharacterModelContent({
     } else if (!currentSelected.includes(instanceId)) {
       selectInstance(instanceId)
     }
+
+    if (mode === 'controlRig') return
+    if (interactionMode !== 'transform') return
 
     const group = groupRef.current
     if (!group) return
@@ -557,7 +558,7 @@ function CharacterModelContent({
             <group position={modelCenterNeg}>
               <group scale={fit.scale} position={[0, fit.yOffset, 0]}>
                       <primitive object={clonedScene} />
-                      {isSelected && (
+                      {isSelected && selectedCount > 1 && (
                         <mesh
                           raycast={() => null}
                           ref={(node) =>
@@ -566,27 +567,29 @@ function CharacterModelContent({
                           position={[fit.center.x, fit.center.y, fit.center.z]}
                           scale={[fit.size.x, fit.size.y, fit.size.z]}
                         >
-                    <boxGeometry args={[1, 1, 1]} />
-                    <meshBasicMaterial
-                      color={selectedCount === 1 && isPrimary ? '#fbbf24' : '#38bdf8'}
-                      wireframe
-                      transparent
-                      opacity={selectedCount === 1 ? 0.35 : 0.25}
-                      depthTest={false}
-                    />
-                  </mesh>
-                )}
-                {isSelected &&
-                  selectedCount === 1 &&
-                  mode !== 'controlRig' &&
-                  interactionMode === 'transform' && (
-                  <BoundingBoxGizmo
-                    instanceId={instanceId}
-                    size={fit.size}
-                    center={fit.center}
-                    pivots={pivots}
-                  />
-                )}
+                          <boxGeometry args={[1, 1, 1]} />
+                          <meshBasicMaterial
+                            color={isPrimary ? '#fbbf24' : '#38bdf8'}
+                            wireframe
+                            transparent
+                            opacity={0.25}
+                            depthTest={false}
+                          />
+                        </mesh>
+                      )}
+                      {isSelected && selectedCount === 1 && mode !== 'controlRig' && (
+                        <BoundingBoxGizmo
+                          instanceId={instanceId}
+                          size={fit.size}
+                          center={fit.center}
+                          pivots={pivots}
+                          showControls={interactionMode === 'transform'}
+                          wireframeColor={
+                            interactionMode === 'transform' ? '#38bdf8' : '#fbbf24'
+                          }
+                          wireframeOpacity={interactionMode === 'transform' ? 0.85 : 0.35}
+                        />
+                      )}
                 {isPrimary && mode !== 'controlRig' && skeleton && poseGizmoMode === 'legacy' && (
                   <>
                     <PoseBodyPicker skeleton={skeleton} fitScale={fit.scale} />
