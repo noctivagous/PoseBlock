@@ -18,10 +18,10 @@ export function ExportRegistrar() {
 
   useEffect(() => {
     registerExportHandler(async () => {
-      const { backdropUrl } = useStore.getState()
+      const { backdropUrl, frameWidth, frameHeight } = useStore.getState()
       const backdrop = await loadImage(backdropUrl)
-      const exportW = backdrop.naturalWidth
-      const exportH = backdrop.naturalHeight
+      const exportW = frameWidth > 0 ? frameWidth : backdrop.naturalWidth
+      const exportH = frameHeight > 0 ? frameHeight : backdrop.naturalHeight
       const prevW = size.width
       const prevH = size.height
 
@@ -32,7 +32,7 @@ export function ExportRegistrar() {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       })
 
-      const dataURL = compositeToDataURL(backdrop, gl.domElement)
+      const dataURL = compositeToDataURL(backdrop, gl.domElement, exportW, exportH)
 
       setSize(prevW, prevH)
       invalidate()

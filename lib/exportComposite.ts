@@ -10,11 +10,13 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 
 export function compositeToDataURL(
   backdrop: HTMLImageElement,
-  overlayCanvas: HTMLCanvasElement
+  overlayCanvas: HTMLCanvasElement,
+  outputWidth?: number,
+  outputHeight?: number,
 ): string {
   const canvas = document.createElement('canvas')
-  canvas.width = backdrop.naturalWidth
-  canvas.height = backdrop.naturalHeight
+  canvas.width = outputWidth ?? backdrop.naturalWidth
+  canvas.height = outputHeight ?? backdrop.naturalHeight
 
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get 2D context')
